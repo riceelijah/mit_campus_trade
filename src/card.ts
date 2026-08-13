@@ -58,7 +58,7 @@ export interface SupercardData {
  * @param row one row of the Campus Trade Master Content Sheet, keyed by column header
  * @returns the SupercardData described by `row`
  */
-function parseSupercardRow(row: Record<string, string>): SupercardData {
+export function parseSupercardRow(row: Record<string, string>): SupercardData {
     const optional = (value: string | undefined): string | undefined => {
         const trimmed = value?.trim();
         return trimmed && trimmed.length > 0 ? trimmed : undefined;

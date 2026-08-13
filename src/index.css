@@ -1,0 +1,214 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    color: #1a1a1a;
+    background: #fafafa;
+}
+
+a {
+    color: inherit;
+}
+
+.page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 24px 16px 64px;
+}
+
+/* --- nav --- */
+
+.navbar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 14px 24px;
+    background: #111;
+    color: #fff;
+}
+
+.navbar__brand {
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-decoration: none;
+    margin-right: auto;
+}
+
+.navbar__link {
+    text-decoration: none;
+    color: #ddd;
+    font-size: 0.95rem;
+}
+
+.navbar__link:hover {
+    color: #fff;
+}
+
+/* --- card art / thumbnails --- */
+
+.card-art {
+    position: relative;
+    aspect-ratio: 5 / 7;
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    padding: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    font-weight: 700;
+}
+
+/* Permanent scrim behind the title so it stays legible regardless of the card's own
+   color -- text-shadow alone isn't enough on light colors like white/silver/yellow. */
+.card-art::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(transparent 55%, rgba(0, 0, 0, 0.6) 100%);
+    pointer-events: none;
+}
+
+.card-art__label {
+    position: relative;
+    z-index: 1;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.card-art--greyscale {
+    filter: grayscale(100%);
+    opacity: 0.75;
+}
+
+.card-thumbnail {
+    display: block;
+    width: 130px;
+    text-decoration: none;
+    color: inherit;
+    flex: none;
+}
+
+.card-thumbnail__title {
+    margin-top: 6px;
+    font-size: 0.85rem;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* --- gallery (home page) --- */
+
+.gallery {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    padding: 12px 4px 20px;
+    scroll-snap-type: x proximity;
+}
+
+.gallery .card-thumbnail {
+    scroll-snap-align: start;
+}
+
+/* --- grid (collection page) --- */
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 18px;
+    margin-top: 16px;
+}
+
+/* --- card detail page --- */
+
+.card-detail {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 28px;
+    margin-top: 20px;
+}
+
+@media (max-width: 600px) {
+    .card-detail {
+        grid-template-columns: 1fr;
+    }
+}
+
+.card-detail__quote {
+    font-style: italic;
+    color: #555;
+}
+
+.chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 10px 0;
+}
+
+.chip {
+    background: #eee;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 0.8rem;
+}
+
+.card-detail__section {
+    margin-top: 18px;
+}
+
+.card-detail__section h3 {
+    margin-bottom: 6px;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #777;
+}
+
+.not-owned-note {
+    color: #888;
+    font-style: italic;
+}
+
+.custody-chain {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-left: 2px solid #ddd;
+}
+
+.custody-chain li {
+    padding: 6px 0 6px 14px;
+    position: relative;
+}
+
+.custody-chain li::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 12px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #111;
+}
+
+/* --- rules page --- */
+
+.faq-item {
+    margin-bottom: 18px;
+}
+
+.faq-item dt {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.faq-item dd {
+    margin: 0;
+    color: #444;
+}
