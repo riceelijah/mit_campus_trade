@@ -12,7 +12,7 @@ interface ScrollingGalleryProps {
 export default function ScrollingGallery({ cards }: ScrollingGalleryProps) {
     return (
         <div className="gallery">
-            {cards.map(supercard => (
+            {cards.map((supercard) => (
                 <CardThumbnail key={supercard.n} supercard={supercard} />
             ))}
         </div>

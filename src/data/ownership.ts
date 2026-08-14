@@ -14,7 +14,7 @@ import { useAuth } from '../auth/AuthContext';
  */
 export function useOwnedCardFor(n: number): Card | undefined {
     const { ownedCards } = useAuth();
-    return ownedCards.find(card => card.n === n);
+    return ownedCards.find((card) => card.n === n);
 }
 
 /**
@@ -23,5 +23,5 @@ export function useOwnedCardFor(n: number): Card | undefined {
  */
 export function useOwnedSupercardNumbers(): ReadonlySet<number> {
     const { ownedCards } = useAuth();
-    return new Set(ownedCards.map(card => card.n));
+    return new Set(ownedCards.map((card) => card.n));
 }

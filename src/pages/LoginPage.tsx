@@ -31,11 +31,11 @@ export default function LoginPage() {
             <form className="auth-form" onSubmit={handleSubmit}>
                 <label>
                     Email or username
-                    <input type="text" value={email} onChange={e => setEmail(e.target.value)} />
+                    <input type="text" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </label>
                 <label>
                     Password
-                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} />
+                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
                 </label>
 
                 {error && <p className="form-error">{error}</p>}
@@ -44,7 +44,9 @@ export default function LoginPage() {
                     {submitting ? 'Logging in…' : 'Log in'}
                 </button>
             </form>
-            <p>Don&rsquo;t have an account? <Link to="/register">Register</Link></p>
+            <p>
+                Don&rsquo;t have an account? <Link to="/register">Register</Link>
+            </p>
         </div>
     );
 }

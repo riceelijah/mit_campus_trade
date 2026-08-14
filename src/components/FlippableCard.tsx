@@ -15,7 +15,7 @@ export default function FlippableCard({ supercard }: FlippableCardProps) {
     const [frontMissing, setFrontMissing] = useState(false);
     const [backMissing, setBackMissing] = useState(false);
 
-    const toggle = () => setFlipped(f => !f);
+    const toggle = () => setFlipped((f) => !f);
 
     return (
         <div
@@ -24,7 +24,7 @@ export default function FlippableCard({ supercard }: FlippableCardProps) {
             tabIndex={0}
             aria-label={`${supercard.title} card. Click to flip and see the ${flipped ? 'front' : 'back'}.`}
             onClick={toggle}
-            onKeyDown={e => {
+            onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     toggle();
@@ -32,7 +32,10 @@ export default function FlippableCard({ supercard }: FlippableCardProps) {
             }}
         >
             <div className={`flip-card__inner${flipped ? ' flip-card__inner--flipped' : ''}`}>
-                <div className="flip-card__face flip-card__face--front" style={{ backgroundColor: supercard.color }}>
+                <div
+                    className="flip-card__face flip-card__face--front"
+                    style={{ backgroundColor: supercard.color }}
+                >
                     {!frontMissing ? (
                         <img
                             className="flip-card__image"
@@ -44,7 +47,10 @@ export default function FlippableCard({ supercard }: FlippableCardProps) {
                         <span className="card-art__label">{supercard.title}</span>
                     )}
                 </div>
-                <div className="flip-card__face flip-card__face--back" style={{ backgroundColor: supercard.color }}>
+                <div
+                    className="flip-card__face flip-card__face--back"
+                    style={{ backgroundColor: supercard.color }}
+                >
                     {!backMissing ? (
                         <img
                             className="flip-card__image"

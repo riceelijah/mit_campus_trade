@@ -1,37 +1,53 @@
 {
-  "name": "campus-trade",
-  "private": true,
-  "version": "0.0.1",
-  "type": "module",
-  "scripts": {
-    "dev": "concurrently -n web,api -c blue,green \"npm:dev:web\" \"npm:dev:api\"",
-    "dev:web": "vite",
-    "dev:api": "tsx watch server/index.ts",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview",
-    "generate:data": "tsx scripts/generate-supercards.ts"
-  },
-  "dependencies": {
-    "bcrypt": "^6.0.0",
-    "cookie-parser": "^1.4.7",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.6.2",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2"
-  },
-  "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
-    "@types/cookie-parser": "^1.4.10",
-    "@types/express": "^5.0.6",
-    "@types/node": "^22.20.1",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
-    "concurrently": "^10.0.4",
-    "csv-parse": "^5.5.6",
-    "tsx": "^4.19.1",
-    "typescript": "^5.5.4",
-    "vite": "^5.4.3"
-  }
+    "name": "campus-trade",
+    "private": true,
+    "version": "0.0.1",
+    "type": "module",
+    "engines": {
+        "node": ">=22.0.0"
+    },
+    "scripts": {
+        "dev": "concurrently -n web,api -c blue,green \"npm:dev:web\" \"npm:dev:api\"",
+        "dev:web": "vite",
+        "dev:api": "tsx watch --env-file-if-exists=.env server/index.ts",
+        "build": "tsc --noEmit && vite build",
+        "preview": "vite preview",
+        "generate:data": "tsx scripts/generate-supercards.ts",
+        "lint": "eslint .",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "bcrypt": "^6.0.0",
+        "cookie-parser": "^1.4.7",
+        "express": "^5.2.1",
+        "express-rate-limit": "^8.6.2",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "react-router-dom": "^6.26.2"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "@types/bcrypt": "^6.0.0",
+        "@types/cookie-parser": "^1.4.10",
+        "@types/express": "^5.0.6",
+        "@types/node": "^22.20.1",
+        "@types/react": "^18.3.5",
+        "@types/react-dom": "^18.3.0",
+        "@vitejs/plugin-react": "^4.3.1",
+        "concurrently": "^10.0.4",
+        "csv-parse": "^5.5.6",
+        "eslint": "^10.8.1",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-react-hooks": "^7.1.1",
+        "eslint-plugin-react-refresh": "^0.5.4",
+        "globals": "^17.11.0",
+        "prettier": "^3.9.6",
+        "tsx": "^4.19.1",
+        "typescript": "^5.5.4",
+        "typescript-eslint": "^8.67.0",
+        "vite": "^5.4.3",
+        "vitest": "^4.1.10"
+    }
 }

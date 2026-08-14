@@ -3,10 +3,21 @@ import crypto from 'node:crypto';
 import { createSession, findSession, deleteSession, findUserById, UserRow } from '../db';
 
 /**
- * Signs the session cookie. MUST be overridden via the SESSION_SECRET env var for any real
- * deployment -- this fallback is only safe for local development.
+ * Signs the session cookie. Must be set via the SESSION_SECRET env var in any real
+ * deployment. In development, an unset SESSION_SECRET falls back to a well-known
+ * placeholder; in production, an unset SESSION_SECRET is a hard startup failure -- silently
+ * running with a public, hardcoded secret would let anyone forge session cookies.
  */
-export const SESSION_SECRET = process.env.SESSION_SECRET ?? 'dev-only-insecure-secret-change-me';
+const DEV_ONLY_SESSION_SECRET = 'dev-only-insecure-secret-change-me';
+
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+    throw new Error(
+        'SESSION_SECRET must be set when NODE_ENV=production. Refusing to start with the ' +
+            'well-known development default -- see .env.example.',
+    );
+}
+
+export const SESSION_SECRET = process.env.SESSION_SECRET ?? DEV_ONLY_SESSION_SECRET;
 
 const SESSION_COOKIE = 'campus_trade_session';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days

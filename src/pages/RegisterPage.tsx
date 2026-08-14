@@ -2,14 +2,22 @@ import { useState, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { FlagColor } from '../types';
+import { isValidMitEmail, isValidPassword } from '../validation';
 
 const TEAM_COLORS: FlagColor[] = [
-    'red', 'blue', 'green', 'yellow', 'orange', 'purple',
-    'pink', 'black', 'white', 'brown', 'gold', 'silver',
+    'red',
+    'blue',
+    'green',
+    'yellow',
+    'orange',
+    'purple',
+    'pink',
+    'black',
+    'white',
+    'brown',
+    'gold',
+    'silver',
 ];
-
-// Kept in sync with server/routes/auth.ts's MIT_EMAIL_RE.
-const MIT_EMAIL_RE = /^[a-z0-9._-]+@mit\.edu$/i;
 
 export default function RegisterPage() {
     const { register } = useAuth();
@@ -31,7 +39,7 @@ export default function RegisterPage() {
             setError('Name is required');
             return;
         }
-        if (!MIT_EMAIL_RE.test(email)) {
+        if (!isValidMitEmail(email)) {
             setError('Email must be a valid @mit.edu address');
             return;
         }
@@ -39,7 +47,7 @@ export default function RegisterPage() {
             setError('Please choose a team color');
             return;
         }
-        if (password.length < 8) {
+        if (!isValidPassword(password)) {
             setError('Password must be at least 8 characters');
             return;
         }
@@ -65,36 +73,40 @@ export default function RegisterPage() {
             <form className="auth-form" onSubmit={handleSubmit}>
                 <label>
                     Name
-                    <input type="text" value={name} onChange={e => setName(e.target.value)} />
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
                 </label>
                 <label>
                     Email
                     <input
                         type="email"
                         value={email}
-                        onChange={e => setEmail(e.target.value)}
+                        onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@mit.edu"
                     />
                 </label>
                 <label>
                     Team color
-                    <select value={team} onChange={e => setTeam(e.target.value as FlagColor)}>
-                        <option value="" disabled>Choose a team&hellip;</option>
-                        {TEAM_COLORS.map(color => (
-                            <option key={color} value={color}>{color}</option>
+                    <select value={team} onChange={(e) => setTeam(e.target.value as FlagColor)}>
+                        <option value="" disabled>
+                            Choose a team&hellip;
+                        </option>
+                        {TEAM_COLORS.map((color) => (
+                            <option key={color} value={color}>
+                                {color}
+                            </option>
                         ))}
                     </select>
                 </label>
                 <label>
                     Password
-                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} />
+                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
                 </label>
                 <label>
                     Confirm password
                     <input
                         type="password"
                         value={confirmPassword}
-                        onChange={e => setConfirmPassword(e.target.value)}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
                     />
                 </label>
 
@@ -104,7 +116,9 @@ export default function RegisterPage() {
                     {submitting ? 'Creating account…' : 'Create account'}
                 </button>
             </form>
-            <p>Already have an account? <Link to="/login">Log in</Link></p>
+            <p>
+                Already have an account? <Link to="/login">Log in</Link>
+            </p>
         </div>
     );
 }
