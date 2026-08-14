@@ -1,25 +1,27 @@
 import { Card } from '../card';
+import { useAuth } from '../auth/AuthContext';
 
 /**
- * Integration stub: this is the one place the app asks "does the current viewer own
- * anything?" There's no auth or persistence layer yet, so both functions below are
- * hardcoded to "nobody owns anything." When real login + ownership data exists, wire it
- * in here -- every page that needs ownership data (CollectionPage, CardDetailPage) already
- * calls through these two functions rather than reaching for owned-card data directly.
+ * This is the one place the app asks "does the current viewer own anything?" -- backed by
+ * the logged-in viewer's owned cards from AuthContext (fetched from GET /api/me/cards).
+ * Both are hooks (not plain functions) since ownership now depends on async, live auth
+ * state; call them from component bodies like any other hook.
  */
 
 /**
- * @param _n a Supercard's collection/dex number
- * @returns the current viewer's Card instance of Supercard `_n`, if they own one
+ * @param n a Supercard's collection/dex number
+ * @returns the current viewer's Card instance of Supercard `n`, if they own one
  */
-export function getOwnedCardFor(_n: number): Card | undefined {
-    return undefined;
+export function useOwnedCardFor(n: number): Card | undefined {
+    const { ownedCards } = useAuth();
+    return ownedCards.find(card => card.n === n);
 }
 
 /**
  * @returns the collection/dex numbers of every Supercard the current viewer owns at least
  *          one instance of
  */
-export function getOwnedSupercardNumbers(): ReadonlySet<number> {
-    return new Set();
+export function useOwnedSupercardNumbers(): ReadonlySet<number> {
+    const { ownedCards } = useAuth();
+    return new Set(ownedCards.map(card => card.n));
 }

@@ -31,10 +31,16 @@ a {
 }
 
 .navbar__brand {
-    font-weight: 700;
-    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
     text-decoration: none;
     margin-right: auto;
+}
+
+.navbar__logo {
+    height: 32px;
+    width: auto;
+    display: block;
 }
 
 .navbar__link {
@@ -47,12 +53,19 @@ a {
     color: #fff;
 }
 
+.navbar__button {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+}
+
 /* --- card art / thumbnails --- */
 
 .card-art {
     position: relative;
-    aspect-ratio: 5 / 7;
-    border-radius: 10px;
+    aspect-ratio: 969 / 1569; /* matches the actual card render dimensions in public/art */
     overflow: hidden;
     display: flex;
     align-items: flex-end;
@@ -61,8 +74,16 @@ a {
     font-weight: 700;
 }
 
+.card-art__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 /* Permanent scrim behind the title so it stays legible regardless of the card's own
-   color -- text-shadow alone isn't enough on light colors like white/silver/yellow. */
+   color (or art) -- text-shadow alone isn't enough on light colors like white/silver/yellow. */
 .card-art::after {
     content: '';
     position: absolute;
@@ -81,6 +102,58 @@ a {
 .card-art--greyscale {
     filter: grayscale(100%);
     opacity: 0.75;
+}
+
+/* --- flip card (card detail page hero) --- */
+
+.flip-card {
+    aspect-ratio: 969 / 1569; /* matches the actual card render dimensions in public/art */
+    cursor: pointer;
+    perspective: 1600px;
+}
+
+.flip-card__inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+    transform-style: preserve-3d;
+}
+
+.flip-card__inner--flipped {
+    transform: rotateY(180deg);
+}
+
+.flip-card__face {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+.flip-card__face--back {
+    transform: rotateY(180deg);
+}
+
+.flip-card__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.flip-card__hint {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: #888;
+    text-align: center;
 }
 
 .card-thumbnail {
@@ -211,4 +284,116 @@ a {
 .faq-item dd {
     margin: 0;
     color: #444;
+}
+
+/* --- auth forms (register/login/account) --- */
+
+.auth-page {
+    max-width: 420px;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 16px 0;
+}
+
+.auth-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.9rem;
+    color: #444;
+}
+
+.auth-form input,
+.auth-form select {
+    padding: 8px 10px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.auth-form button {
+    padding: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    background: #111;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.auth-form button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.form-error {
+    color: #b3261e;
+    font-size: 0.9rem;
+}
+
+.form-success {
+    color: #1e7b34;
+    font-size: 0.9rem;
+}
+
+/* --- admin page --- */
+
+.admin-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+    align-items: start;
+    margin-top: 16px;
+}
+
+@media (max-width: 800px) {
+    .admin-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.admin-table tbody tr {
+    cursor: pointer;
+}
+
+.admin-table tbody tr:hover {
+    background: #f2f2f2;
+}
+
+.admin-table__row--selected {
+    background: #eef0ff;
+}
+
+.admin-detail {
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.admin-card-list {
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.9rem;
 }
