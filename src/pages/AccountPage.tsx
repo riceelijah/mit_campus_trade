@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { isValidPassword } from '../validation';
 
 export default function AccountPage() {
     const { user, loading, changePassword } = useAuth();
@@ -24,7 +25,7 @@ export default function AccountPage() {
         setError(null);
         setSuccess(false);
 
-        if (newPassword.length < 8) {
+        if (!isValidPassword(newPassword)) {
             setError('New password must be at least 8 characters');
             return;
         }
@@ -62,19 +63,23 @@ export default function AccountPage() {
                     <input
                         type="password"
                         value={currentPassword}
-                        onChange={e => setCurrentPassword(e.target.value)}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
                     />
                 </label>
                 <label>
                     New password
-                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                    <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                    />
                 </label>
                 <label>
                     Confirm new password
                     <input
                         type="password"
                         value={confirmNewPassword}
-                        onChange={e => setConfirmNewPassword(e.target.value)}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
                     />
                 </label>
 

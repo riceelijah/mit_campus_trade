@@ -50,15 +50,56 @@ export interface SupercardData {
     highlightDate: string;
 }
 
+const REQUIRED_COLUMNS = [
+    'ID',
+    'Card_Title',
+    'Short_Quote',
+    'Categories',
+    'Color',
+    ' Type',
+    '@FrontFrame',
+    '@BackFrame',
+    '@Art_File',
+    'Excerpt (printed)',
+    'Link to highlight',
+    'Highlight ID',
+    'Website link',
+    '@QR_Code',
+    'Exchange question',
+    'Exchange level',
+    'Speaker name',
+    'Speaker details',
+    'Highlight date',
+] as const;
+
+/**
+ * Throws a clear error naming the missing column(s) rather than letting a later
+ * `row[key].trim()` throw a cryptic "Cannot read properties of undefined" deep inside
+ * parsing -- the master content sheet's headers (including the literal leading space in
+ * ' Type') are fragile-by-nature since they're hand-maintained in a spreadsheet.
+ */
+function assertHasRequiredColumns(row: Record<string, string>): void {
+    const missing = REQUIRED_COLUMNS.filter((col) => row[col] === undefined);
+    if (missing.length > 0) {
+        throw new Error(
+            `CSV row is missing required column(s): ${missing.join(', ')}. Check the master ` +
+                `content sheet's headers haven't changed (note ' Type' has a leading space).`,
+        );
+    }
+}
+
 /**
  * Parses one already-parsed CSV row (keyed by the master content sheet's exact column
- * headers) into a SupercardData. Does not validate the result -- the Supercard/Card
- * constructors do that via checkRep().
+ * headers) into a SupercardData. Does not validate the result's content -- the Supercard/Card
+ * constructors do that via checkRep() -- but does check that every expected column is
+ * present, so a renamed/missing header fails with a clear message instead of a cryptic one.
  *
  * @param row one row of the Campus Trade Master Content Sheet, keyed by column header
  * @returns the SupercardData described by `row`
  */
 export function parseSupercardRow(row: Record<string, string>): SupercardData {
+    assertHasRequiredColumns(row);
+
     const optional = (value: string | undefined): string | undefined => {
         const trimmed = value?.trim();
         return trimmed && trimmed.length > 0 ? trimmed : undefined;
@@ -68,7 +109,10 @@ export function parseSupercardRow(row: Record<string, string>): SupercardData {
         n: parseInt(row['ID'], 10),
         title: row['Card_Title'].trim(),
         shortQuote: row['Short_Quote'].trim(),
-        categories: row['Categories'].split(',').map(c => c.trim()).filter(c => c.length > 0),
+        categories: row['Categories']
+            .split(',')
+            .map((c) => c.trim())
+            .filter((c) => c.length > 0),
         color: row['Color'].trim() as FlagColor,
         frameType: row[' Type'].trim() as FrameType,
         frontFrame: row['@FrontFrame'].trim(),
@@ -204,9 +248,15 @@ export class Supercard {
         assert(this.title.length > 0, 'title must be non-empty');
         assert(this.shortQuote.length > 0, 'shortQuote must be non-empty');
         assert(this._categories.length >= 1, 'categories must have at least one entry');
-        assert(this._categories.every(c => c.length > 0), 'no category may be empty');
+        assert(
+            this._categories.every((c) => c.length > 0),
+            'no category may be empty',
+        );
         assert(VALID_COLORS.has(this.color), 'color must be one of the 12 FlagColor values');
-        assert(this.frameType === 'bubble' || this.frameType === 'rect', "frameType must be 'bubble' or 'rect'");
+        assert(
+            this.frameType === 'bubble' || this.frameType === 'rect',
+            "frameType must be 'bubble' or 'rect'",
+        );
         assert(this.frontFrame.length > 0, 'frontFrame must be non-empty');
         assert(this.backFrame.length > 0, 'backFrame must be non-empty');
         assert(this.artFile.length > 0, 'artFile must be non-empty');
@@ -221,7 +271,10 @@ export class Supercard {
         assert(this.websiteLink.length > 0, 'websiteLink must be non-empty');
         assert(this.qrCodeFile.length > 0, 'qrCodeFile must be non-empty');
         assert(this.question.length > 0, 'question must be non-empty');
-        assert(Number.isInteger(this.cost) && this.cost >= 1 && this.cost <= 3, 'cost must be an integer 1-3');
+        assert(
+            Number.isInteger(this.cost) && this.cost >= 1 && this.cost <= 3,
+            'cost must be an integer 1-3',
+        );
         assert(this.descriptionAttribution.length > 0, 'descriptionAttribution must be non-empty');
         assert(this.speakerDetails.length > 0, 'speakerDetails must be non-empty');
         assert(this.highlightDate.length > 0, 'highlightDate must be non-empty');
@@ -293,7 +346,10 @@ export class Card extends Supercard {
      *          Date objects), safe for the caller to mutate
      */
     public get custody(): CustodyRecord[] {
-        return this._custody.map(record => ({ owner: record.owner, acquiredAt: new Date(record.acquiredAt.getTime()) }));
+        return this._custody.map((record) => ({
+            owner: record.owner,
+            acquiredAt: new Date(record.acquiredAt.getTime()),
+        }));
     }
 
     /**
@@ -312,7 +368,10 @@ export class Card extends Supercard {
      */
     public transferTo(newOwner: User, acquiredAt: Date = new Date()): void {
         const current = this.currentOwner;
-        assert(current === undefined || !current.equals(newOwner), 'cannot transfer a card to its current owner');
+        assert(
+            current === undefined || !current.equals(newOwner),
+            'cannot transfer a card to its current owner',
+        );
         this._custody.push({ owner: newOwner, acquiredAt: new Date(acquiredAt.getTime()) });
         this.checkRep();
     }

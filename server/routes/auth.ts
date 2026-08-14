@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { VALID_COLORS, FlagColor } from '../../src/types';
+import { isValidMitEmail, isValidPassword, isValidTeamColor } from '../../src/validation';
 import { hashPassword, verifyPassword } from '../auth/password';
 import {
     createSessionForUser,
@@ -11,14 +11,17 @@ import {
     endCurrentSession,
     requireAuth,
 } from '../auth/session';
-import { findUserByEmail, findUserByUsername, insertUser, updatePasswordHash, deleteOtherSessionsForUser, UserRow } from '../db';
+import {
+    findUserByEmail,
+    findUserByUsername,
+    insertUser,
+    updatePasswordHash,
+    deleteOtherSessionsForUser,
+    UserRow,
+} from '../db';
 import { sanitizeUser } from '../serialize';
 
-// Local part restricted to a conservative, standard username charset -- notably excludes
-// '+', which mail systems that support it would otherwise let one person register unlimited
-// accounts against a single mailbox (student+1@mit.edu, student+2@mit.edu, ...).
-const MIT_EMAIL_RE = /^[a-z0-9._-]+@mit\.edu$/i;
-const ADMIN_EMAIL = 'ejrice@mit.edu';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.toLowerCase() ?? 'ejrice@mit.edu';
 
 export const authRouter = Router();
 
@@ -47,15 +50,15 @@ authRouter.post('/register', authLimiter, async (req, res) => {
         res.status(400).json({ error: 'Name is required' });
         return;
     }
-    if (typeof email !== 'string' || !MIT_EMAIL_RE.test(email)) {
+    if (typeof email !== 'string' || !isValidMitEmail(email)) {
         res.status(400).json({ error: 'Email must be a valid @mit.edu address' });
         return;
     }
-    if (typeof team !== 'string' || !VALID_COLORS.has(team as FlagColor)) {
+    if (typeof team !== 'string' || !isValidTeamColor(team)) {
         res.status(400).json({ error: 'Please choose a valid team color' });
         return;
     }
-    if (typeof password !== 'string' || password.length < 8) {
+    if (typeof password !== 'string' || !isValidPassword(password)) {
         res.status(400).json({ error: 'Password must be at least 8 characters' });
         return;
     }
@@ -90,6 +93,7 @@ authRouter.post('/register', authLimiter, async (req, res) => {
         setSessionCookie(res, token);
         res.status(201).json({ user: sanitizeUser(row) });
     } catch (err) {
+        console.error('Failed to create account:', err);
         res.status(500).json({ error: 'Could not create account' });
     }
 });
@@ -149,7 +153,7 @@ authRouter.post('/change-password', authLimiter, requireAuth, async (req, res) =
         res.status(401).json({ error: 'Current password is incorrect' });
         return;
     }
-    if (newPassword.length < 8) {
+    if (!isValidPassword(newPassword)) {
         res.status(400).json({ error: 'New password must be at least 8 characters' });
         return;
     }

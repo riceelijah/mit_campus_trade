@@ -12,7 +12,7 @@ import { parse } from 'csv-parse/sync';
 import { parseSupercardRow } from '../src/card';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const CSV_PATH = path.resolve(here, '../Campus Trade Master Content Sheet - Ordered Card Master(in)(1).csv');
+const CSV_PATH = path.resolve(here, '../data/master-content-sheet.csv');
 const OUT_PATH = path.resolve(here, '../src/data/supercards.json');
 
 const csvText = fs.readFileSync(CSV_PATH, 'utf-8');

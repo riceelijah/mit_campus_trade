@@ -15,7 +15,9 @@ export default function CardDetailPage() {
         return (
             <div>
                 <h1>Card not found</h1>
-                <p><Link to="/collection">Back to your collection</Link></p>
+                <p>
+                    <Link to="/collection">Back to your collection</Link>
+                </p>
             </div>
         );
     }
@@ -37,8 +39,10 @@ export default function CardDetailPage() {
                 <p className="card-detail__quote">{supercard.shortQuote}</p>
 
                 <div className="chip-row">
-                    {supercard.categories.map(category => (
-                        <span className="chip" key={category}>{category}</span>
+                    {supercard.categories.map((category) => (
+                        <span className="chip" key={category}>
+                            {category}
+                        </span>
                     ))}
                     <span className="chip">{supercard.color}</span>
                     <span className="chip">Cost {supercard.cost}</span>
@@ -60,9 +64,10 @@ export default function CardDetailPage() {
                 <div className="card-detail__section">
                     <h3>Source</h3>
                     <p>
-                        <a href={supercard.link} target="_blank" rel="noreferrer">View highlight</a>
-                        {' '}&middot; {supercard.highlightDate}
-                        {' '}&middot; #{supercard.highlightId}
+                        <a href={supercard.link} target="_blank" rel="noreferrer">
+                            View highlight
+                        </a>{' '}
+                        &middot; {supercard.highlightDate} &middot; #{supercard.highlightId}
                     </p>
                     {supercard.artist && <p>Art by {supercard.artist}</p>}
                 </div>
@@ -78,9 +83,11 @@ export default function CardDetailPage() {
 
                 <div className="card-detail__section">
                     <h3>Your Card's History</h3>
-                    {ownedCard
-                        ? <CustodyChain custody={ownedCard.custody} />
-                        : <p className="not-owned-note">You don't own this card yet.</p>}
+                    {ownedCard ? (
+                        <CustodyChain custody={ownedCard.custody} />
+                    ) : (
+                        <p className="not-owned-note">You don't own this card yet.</p>
+                    )}
                 </div>
             </div>
         </div>

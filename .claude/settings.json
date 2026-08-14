@@ -17,7 +17,19 @@
       "Bash(sqlite3 server/campus_trade.db -header -column \"SELECT id, username, email, team, is_admin, created_at FROM users;\")",
       "Bash(ps -p 25415 -o pid,ppid,etime,command)",
       "Bash(kill 25415)",
-      "Bash(ps -p 25415 -o pid,command)"
+      "Bash(ps -p 25415 -o pid,command)",
+      "Bash(NODE_ENV=production PORT=0 npx tsx -e ' *)",
+      "Bash(node \"/private/tmp/claude-501/-Users-riceelijah-Desktop-dev-other-campus-trade/63f13081-28b0-4961-81ce-0b70946b8d73/scratchpad/verify-session-guard.mjs\")",
+      "Bash(git mv *)",
+      "Bash(npm audit *)",
+      "Bash(npx prettier *)",
+      "Bash(npx eslint *)",
+      "Bash(git rm *)",
+      "Bash(npx vitest *)",
+      "Bash(curl -s -c /tmp/campus_trade_admin_cookies.txt -X POST http://localhost:3099/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"ejrice@mit.edu\",\"password\":\"password123\"}')",
+      "Bash(curl -s -b /tmp/campus_trade_admin_cookies2.txt -X POST http://localhost:3099/api/admin/card-instances/2/transfer -H 'Content-Type: application/json' -d '{\"newOwnerUserId\":3}')",
+      "Bash(curl -s -b /tmp/campus_trade_admin_cookies2.txt -X POST http://localhost:3099/api/auth/change-password -H 'Content-Type: application/json' -d '{\"currentPassword\":\"password123\",\"newPassword\":\"short\",\"confirmNewPassword\":\"short\"}')",
+      "Bash(curl -s -b /tmp/campus_trade_admin_cookies2.txt -X POST http://localhost:3099/api/auth/change-password -H 'Content-Type: application/json' -d '{\"currentPassword\":\"password123\",\"newPassword\":\"newpassword456\",\"confirmNewPassword\":\"newpassword456\"}')"
     ],
     "additionalDirectories": [
       "/Users/riceelijah/Desktop/dev/other/campus_trade/server"

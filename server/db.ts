@@ -43,6 +43,12 @@ db.exec(`
         user_id INTEGER NOT NULL REFERENCES users(id),
         acquired_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- custody_events is append-only and grows across every orientation cycle; both columns
+    -- are filtered on read (cardInstancesOwnedBy, custodyForCardInstance below), so index
+    -- them rather than full-scanning as trade history accumulates.
+    CREATE INDEX IF NOT EXISTS idx_custody_events_card_instance_id ON custody_events(card_instance_id);
+    CREATE INDEX IF NOT EXISTS idx_custody_events_user_id ON custody_events(user_id);
 `);
 
 export interface UserRow {

@@ -11,7 +11,7 @@ interface CardGridProps {
 export default function CardGrid({ cards, isOwned }: CardGridProps) {
     return (
         <div className="card-grid">
-            {cards.map(supercard => (
+            {cards.map((supercard) => (
                 <CardThumbnail key={supercard.n} supercard={supercard} greyscale={!isOwned(supercard)} />
             ))}
         </div>

@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User } from '../user';
 import { Card } from '../card';
-import { FlagColor } from '../types';
+import { FlagColor, PublicUserJson, PublicCardInstanceJson } from '../types';
 import { getSupercard } from '../data/supercards';
+import { extractError } from '../lib/api';
 
 export interface RegisterData {
     name: string;
@@ -38,23 +39,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-interface PublicUserJson {
-    id: number;
-    username: string;
-    name: string;
-    email: string;
-    team: FlagColor;
-    isAdmin: boolean;
-}
-
 function userFromJson(json: PublicUserJson): User {
     return new User(json.id, json.username, json.name, json.email, json.team, json.isAdmin);
-}
-
-interface PublicCardInstanceJson {
-    cardInstanceId: number;
-    supercardN: number;
-    custody: { acquiredAt: string; owner: PublicUserJson }[];
 }
 
 /**
@@ -74,15 +60,6 @@ function cardsFromJson(raw: PublicCardInstanceJson[]): Card[] {
         cards.push(card);
     }
     return cards;
-}
-
-async function extractError(res: Response): Promise<string> {
-    try {
-        const body = await res.json();
-        return typeof body.error === 'string' ? body.error : 'Something went wrong';
-    } catch {
-        return 'Something went wrong';
-    }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -112,31 +89,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })();
     }, [refreshOwnedCards]);
 
-    const register = useCallback(async (data: RegisterData) => {
-        const res = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error(await extractError(res));
-        const body = await res.json();
-        setUser(userFromJson(body.user));
-        await refreshOwnedCards();
-    }, [refreshOwnedCards]);
+    const register = useCallback(
+        async (data: RegisterData) => {
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(await extractError(res));
+            const body = await res.json();
+            setUser(userFromJson(body.user));
+            await refreshOwnedCards();
+        },
+        [refreshOwnedCards],
+    );
 
-    const login = useCallback(async (data: LoginData) => {
-        const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error(await extractError(res));
-        const body = await res.json();
-        setUser(userFromJson(body.user));
-        await refreshOwnedCards();
-    }, [refreshOwnedCards]);
+    const login = useCallback(
+        async (data: LoginData) => {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(await extractError(res));
+            const body = await res.json();
+            setUser(userFromJson(body.user));
+            await refreshOwnedCards();
+        },
+        [refreshOwnedCards],
+    );
 
     const logout = useCallback(async () => {
         await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });

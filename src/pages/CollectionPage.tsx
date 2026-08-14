@@ -9,10 +9,10 @@ export default function CollectionPage() {
         <div>
             <h1>Your Collection</h1>
             <p>
-                Cards you've collected appear in full color. Everything else is greyed out
-                until you trade for it.
+                Cards you've collected appear in full color. Everything else is greyed out until you trade for
+                it.
             </p>
-            <CardGrid cards={SUPERCARDS} isOwned={supercard => owned.has(supercard.n)} />
+            <CardGrid cards={SUPERCARDS} isOwned={(supercard) => owned.has(supercard.n)} />
         </div>
     );
 }

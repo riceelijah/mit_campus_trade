@@ -7,10 +7,10 @@ import raw from './supercards.json';
  * and the categories getter's defensive copy both apply.
  */
 export const SUPERCARDS: Supercard[] = (raw as SupercardData[])
-    .map(data => new Supercard(data))
+    .map((data) => new Supercard(data))
     .sort((a, b) => a.n - b.n);
 
-const byNumber = new Map(SUPERCARDS.map(supercard => [supercard.n, supercard]));
+const byNumber = new Map(SUPERCARDS.map((supercard) => [supercard.n, supercard]));
 
 /**
  * @param n a collection/dex number

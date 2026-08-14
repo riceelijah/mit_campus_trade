@@ -2,44 +2,17 @@ import { useState, useEffect, useCallback, FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { SUPERCARDS, getSupercard } from '../data/supercards';
-
-interface AdminUser {
-    id: number;
-    username: string;
-    name: string;
-    email: string;
-    team: string;
-    isAdmin: boolean;
-}
-
-interface CustodyEventJson {
-    acquiredAt: string;
-    owner: AdminUser;
-}
-
-interface CardInstanceJson {
-    cardInstanceId: number;
-    supercardN: number;
-    custody: CustodyEventJson[];
-}
-
-async function extractError(res: Response): Promise<string> {
-    try {
-        const body = await res.json();
-        return typeof body.error === 'string' ? body.error : 'Something went wrong';
-    } catch {
-        return 'Something went wrong';
-    }
-}
+import { PublicUserJson, PublicCardInstanceJson } from '../types';
+import { extractError } from '../lib/api';
 
 export default function AdminPage() {
     const { user, loading } = useAuth();
 
-    const [users, setUsers] = useState<AdminUser[]>([]);
+    const [users, setUsers] = useState<PublicUserJson[]>([]);
     const [usersError, setUsersError] = useState<string | null>(null);
 
     const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-    const [selectedUserCards, setSelectedUserCards] = useState<CardInstanceJson[]>([]);
+    const [selectedUserCards, setSelectedUserCards] = useState<PublicCardInstanceJson[]>([]);
 
     const [grantSupercardN, setGrantSupercardN] = useState<number | ''>('');
     const [actionError, setActionError] = useState<string | null>(null);
@@ -146,7 +119,7 @@ export default function AdminPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {users.map(u => (
+                        {users.map((u) => (
                             <tr
                                 key={u.id}
                                 className={u.id === selectedUserId ? 'admin-table__row--selected' : ''}
@@ -164,27 +137,34 @@ export default function AdminPage() {
 
                 {selectedUserId !== null && (
                     <div className="admin-detail">
-                        <h2>{users.find(u => u.id === selectedUserId)?.username}&rsquo;s cards</h2>
+                        <h2>{users.find((u) => u.id === selectedUserId)?.username}&rsquo;s cards</h2>
 
                         {actionError && <p className="form-error">{actionError}</p>}
 
                         <ul className="admin-card-list">
-                            {selectedUserCards.map(card => (
+                            {selectedUserCards.map((card) => (
                                 <li key={card.cardInstanceId}>
-                                    #{card.supercardN} {getSupercard(card.supercardN)?.title ?? '(unknown card)'}
-                                    {' '}
+                                    #{card.supercardN}{' '}
+                                    {getSupercard(card.supercardN)?.title ?? '(unknown card)'}{' '}
                                     <select
                                         disabled={actionPending}
                                         defaultValue=""
-                                        onChange={e => {
+                                        onChange={(e) => {
                                             const newOwnerUserId = Number(e.target.value);
-                                            if (newOwnerUserId) handleTransfer(card.cardInstanceId, newOwnerUserId);
+                                            if (newOwnerUserId)
+                                                handleTransfer(card.cardInstanceId, newOwnerUserId);
                                         }}
                                     >
-                                        <option value="" disabled>Transfer to&hellip;</option>
-                                        {users.filter(u => u.id !== selectedUserId).map(u => (
-                                            <option key={u.id} value={u.id}>{u.username}</option>
-                                        ))}
+                                        <option value="" disabled>
+                                            Transfer to&hellip;
+                                        </option>
+                                        {users
+                                            .filter((u) => u.id !== selectedUserId)
+                                            .map((u) => (
+                                                <option key={u.id} value={u.id}>
+                                                    {u.username}
+                                                </option>
+                                            ))}
                                     </select>
                                 </li>
                             ))}
@@ -196,11 +176,15 @@ export default function AdminPage() {
                                 Grant a card
                                 <select
                                     value={grantSupercardN}
-                                    onChange={e => setGrantSupercardN(Number(e.target.value))}
+                                    onChange={(e) => setGrantSupercardN(Number(e.target.value))}
                                 >
-                                    <option value="" disabled>Choose a card&hellip;</option>
-                                    {SUPERCARDS.map(sc => (
-                                        <option key={sc.n} value={sc.n}>#{sc.n} {sc.title}</option>
+                                    <option value="" disabled>
+                                        Choose a card&hellip;
+                                    </option>
+                                    {SUPERCARDS.map((sc) => (
+                                        <option key={sc.n} value={sc.n}>
+                                            #{sc.n} {sc.title}
+                                        </option>
                                     ))}
                                 </select>
                             </label>
