@@ -1,9 +1,9 @@
 import { SUPERCARDS } from '../data/supercards';
-import { getOwnedSupercardNumbers } from '../data/ownership';
+import { useOwnedSupercardNumbers } from '../data/ownership';
 import CardGrid from '../components/CardGrid';
 
 export default function CollectionPage() {
-    const owned = getOwnedSupercardNumbers();
+    const owned = useOwnedSupercardNumbers();
 
     return (
         <div>

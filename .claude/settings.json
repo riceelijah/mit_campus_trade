@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(cd /Users/riceelijah/Desktop/dev/other/campus_trade *)",
+      "Bash(rm -f /Users/riceelijah/Desktop/dev/other/campus_trade/server/campus_trade.db* *)",
+      "Bash(lsof -ti:3001 -sTCP:LISTEN | xargs -r kill 2>/dev/null *)",
+      "Bash(node -e \"fetch\\('http://localhost:5183'\\).then\\(r=>process.exit\\(r.ok?0:1\\)\\).catch\\(\\(\\)=>process.exit\\(1\\)\\)\")",
+      "Bash(break)",
+      "Bash(node -e \"fetch\\('http://localhost:3001/api/auth/me'\\).then\\(r=>process.exit\\(1\\)\\).catch\\(\\(\\)=>process.exit\\(1\\)\\)\")",
+      "Bash(node -e \"fetch\\('http://localhost:3001/api/auth/me'\\).then\\(\\(\\)=>process.exit\\(0\\)\\).catch\\(\\(\\)=>process.exit\\(1\\)\\)\")",
+      "Bash(node verify_user_system.mjs)",
+      "Bash(node -e \"fetch\\('http://localhost:5183'\\).then\\(r=>console.log\\('vite status:', r.status\\)\\).catch\\(e=>console.log\\('vite down:', e.message\\)\\)\")",
+      "Bash(curl -s -i http://localhost:3001/api/auth/me)",
+      "Bash(sqlite3 server/campus_trade.db \"SELECT id, username, email, is_admin, created_at FROM users;\")",
+      "Bash(sqlite3 server/campus_trade.db \".tables\")",
+      "Bash(sqlite3 server/campus_trade.db -header -column \"SELECT id, username, email, team, is_admin, created_at FROM users;\")",
+      "Bash(ps -p 25415 -o pid,ppid,etime,command)",
+      "Bash(kill 25415)",
+      "Bash(ps -p 25415 -o pid,command)"
+    ],
+    "additionalDirectories": [
+      "/Users/riceelijah/Desktop/dev/other/campus_trade/server"
+    ]
+  }
+}
