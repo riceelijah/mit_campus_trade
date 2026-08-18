@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { getSupercard } from '../data/supercards';
-import { useOwnedCardFor } from '../data/ownership';
+import { useCollectedCardFor } from '../data/ownership';
 import FlippableCard from '../components/FlippableCard';
 import CustodyChain from '../components/CustodyChain';
 
@@ -9,7 +9,7 @@ export default function CardDetailPage() {
     const supercard = getSupercard(Number(n));
     // Called unconditionally, before the early return below, per the Rules of Hooks --
     // Number(n) is always defined even when it doesn't match a real card.
-    const ownedCard = useOwnedCardFor(Number(n));
+    const collectedCard = useCollectedCardFor(Number(n));
 
     if (!supercard) {
         return (
@@ -22,11 +22,6 @@ export default function CardDetailPage() {
         );
     }
 
-    // The spreadsheet's Website link column points at the not-yet-live mitcampustrade.com --
-    // swapped to localhost:5173 (this app's own dev origin) so the printed/QR link on each
-    // card is actually followable while the real domain isn't up.
-    const localWebsiteLink = supercard.websiteLink.replace(/^mitcampustrade\.com/i, 'localhost:5173');
-
     return (
         <div className="card-detail">
             <div>
@@ -36,6 +31,7 @@ export default function CardDetailPage() {
 
             <div>
                 <h1>{supercard.title}</h1>
+                {supercard.artist && <p className="card-detail__attribution">Art by {supercard.artist}</p>}
                 <p className="card-detail__quote">{supercard.shortQuote}</p>
 
                 <div className="chip-row">
@@ -46,6 +42,22 @@ export default function CardDetailPage() {
                     ))}
                     <span className="chip">{supercard.color}</span>
                     <span className="chip">Cost {supercard.cost}</span>
+                </div>
+
+                <div className="card-detail__section">
+                    <h3>Source</h3>
+                    <iframe
+                        className="cortico-embed"
+                        src={`https://embed.cortico.ai/?hid=${supercard.highlightId}`}
+                        width={570}
+                        height={212}
+                        scrolling="no"
+                        frameBorder={0}
+                        title={`${supercard.descriptionAttribution}'s interview highlight`}
+                    />
+                    <p>
+                        {supercard.highlightDate} &middot; #{supercard.highlightId}
+                    </p>
                 </div>
 
                 <div className="card-detail__section">
@@ -61,32 +73,16 @@ export default function CardDetailPage() {
                     <p>{supercard.question}</p>
                 </div>
 
-                <div className="card-detail__section">
-                    <h3>Source</h3>
-                    <p>
-                        <a href={supercard.link} target="_blank" rel="noreferrer">
-                            View highlight
-                        </a>{' '}
-                        &middot; {supercard.highlightDate} &middot; #{supercard.highlightId}
-                    </p>
-                    {supercard.artist && <p>Art by {supercard.artist}</p>}
-                </div>
-
-                <div className="card-detail__section">
-                    <h3>This card's page</h3>
-                    <p>
-                        <a href={`http://${localWebsiteLink}`} target="_blank" rel="noreferrer">
-                            {localWebsiteLink}
-                        </a>
-                    </p>
-                </div>
+                {/* "This card's page" section (mitcampustrade.com link) is temporarily hidden --
+                    the site it points to isn't live yet and the link is currently broken.
+                    Re-enable once mitcampustrade.com is up. */}
 
                 <div className="card-detail__section">
                     <h3>Your Card's History</h3>
-                    {ownedCard ? (
-                        <CustodyChain custody={ownedCard.custody} />
+                    {collectedCard ? (
+                        <CustodyChain custody={collectedCard.custody} />
                     ) : (
-                        <p className="not-owned-note">You don't own this card yet.</p>
+                        <p className="not-owned-note">You haven't collected this card yet.</p>
                     )}
                 </div>
             </div>

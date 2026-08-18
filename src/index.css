@@ -215,6 +215,12 @@ a {
     }
 }
 
+.card-detail__attribution {
+    color: #888;
+    font-size: 0.9rem;
+    margin-top: -4px;
+}
+
 .card-detail__quote {
     font-style: italic;
     color: #555;
@@ -249,6 +255,11 @@ a {
 .not-owned-note {
     color: #888;
     font-style: italic;
+}
+
+.cortico-embed {
+    max-width: 100%;
+    border: none;
 }
 
 .custody-chain {
