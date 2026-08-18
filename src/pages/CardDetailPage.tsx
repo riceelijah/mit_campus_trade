@@ -47,7 +47,7 @@ export default function CardDetailPage() {
         <div className="card-detail">
             {toastMessage && <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />}
 
-            <div>
+            <div className="card-detail__hero">
                 <FlippableCard supercard={supercard} />
                 <p className="flip-card__hint">Click the card to flip it over</p>
             </div>

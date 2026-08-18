@@ -251,6 +251,25 @@ adminRouter.post('/users/:userId/bulk-revoke', (req, res) => {
     res.status(200).json({ revoked: instances.length });
 });
 
+// Marks every matching supercard as "seen" for the target user -- independent of their
+// collected/owned history, this only affects the greyscale "seen but not collected" state.
+adminRouter.post('/users/:userId/bulk-see', (req, res) => {
+    const userId = parseId(req.params.userId);
+    if (userId === undefined || !findUserById(userId)) {
+        res.status(404).json({ error: 'No such user' });
+        return;
+    }
+    const filter = parseTypeFilter(req.body);
+    if (!filter) {
+        res.status(400).json({ error: 'Not a valid filter' });
+        return;
+    }
+
+    const targets = matchingSupercards(filter);
+    for (const supercard of targets) markSupercardSeen(userId, supercard.n);
+    res.status(200).json({ seen: targets.length });
+});
+
 // Unmarks every matching supercard as "seen" for the target user -- independent of their
 // collected/owned history, this only affects the greyscale "seen but not collected" state.
 adminRouter.post('/users/:userId/bulk-unsee', (req, res) => {
