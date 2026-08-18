@@ -113,7 +113,10 @@
       "Bash(node /tmp/debug_center3.mjs)",
       "Bash(git check-ignore *)",
       "Bash(node /private/tmp/claude-501/-Users-riceelijah-Desktop-dev-other-campus-trade/63f13081-28b0-4961-81ce-0b70946b8d73/scratchpad/scanner_zindex_test.mjs)",
-      "Bash(md5 /Users/riceelijah/Desktop/dev/other/campus_trade/server/campus_trade.db)"
+      "Bash(md5 /Users/riceelijah/Desktop/dev/other/campus_trade/server/campus_trade.db)",
+      "Bash(sed -i '' 's/username: '\\\\''ejrice'\\\\''/email: '\\\\''ejrice@mit.edu'\\\\''/' /private/tmp/claude-501/-Users-riceelijah-Desktop-dev-other-campus-trade/63f13081-28b0-4961-81ce-0b70946b8d73/scratchpad/layout_screenshot2.mjs)",
+      "Bash(node /private/tmp/claude-501/-Users-riceelijah-Desktop-dev-other-campus-trade/63f13081-28b0-4961-81ce-0b70946b8d73/scratchpad/layout_screenshot2.mjs)",
+      "Bash(node /private/tmp/claude-501/-Users-riceelijah-Desktop-dev-other-campus-trade/63f13081-28b0-4961-81ce-0b70946b8d73/scratchpad/carddetail_test.mjs)"
     ],
     "additionalDirectories": [
       "/Users/riceelijah/Desktop/dev/other/campus_trade/server"

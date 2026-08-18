@@ -17,7 +17,6 @@ export default function HomePage() {
                 icebreaker question, a selfie, a plan to grab food, whatever it asks for. New packs and
                 objectives get added as orientation continues, so there's always a reason to keep trading.
             </p>
-            <h2>Browse the cards</h2>
             <ScrollingGallery cards={SUPERCARDS} />
         </div>
     );

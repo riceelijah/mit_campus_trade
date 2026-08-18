@@ -536,14 +536,31 @@ a {
 
 .card-detail {
     display: grid;
-    grid-template-columns: 220px 1fr;
+    /* Bumped up from 220px -- the card reads as the hero of this page on tablet/desktop, so it
+       gets more room. Shrunk further below for phones, where screen width is the scarce
+       resource. */
+    grid-template-columns: 300px 1fr;
     gap: 28px;
     margin-top: 20px;
+}
+
+@media (min-width: 1100px) {
+    .card-detail {
+        grid-template-columns: 360px 1fr;
+    }
 }
 
 @media (max-width: 600px) {
     .card-detail {
         grid-template-columns: 1fr;
+    }
+
+    /* Without this, the single-column layout above stretches the card to the full width of
+       the phone's screen -- much bigger than the 220px it used to render at. Capping and
+       centering it here keeps it appropriately smaller on phones instead. */
+    .card-detail__hero {
+        max-width: 160px;
+        margin: 0 auto;
     }
 }
 
@@ -792,8 +809,8 @@ a {
 .admin-bulk-actions {
     display: flex;
     flex-wrap: wrap;
-    align-items: end;
-    gap: 10px;
+    align-items: center;
+    gap: 20px;
     margin: 12px 0;
     padding: 12px;
     background: #f7f7f7;
@@ -806,6 +823,41 @@ a {
     gap: 4px;
     font-size: 0.85rem;
     color: #444;
+}
+
+.admin-bulk-actions__filter {
+    flex: none;
+}
+
+/* The two action groups (ownership vs. seen status) sit side by side, each visually separated
+   from the other so it reads as "two different kinds of action" rather than one undifferentiated
+   row of five buttons. Wraps to stacked groups on narrow screens. */
+.admin-bulk-actions__groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.admin-bulk-actions__group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 16px;
+    border-left: 1px solid #ddd;
+}
+
+.admin-bulk-actions__group-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.admin-bulk-actions__buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .admin-card-list {

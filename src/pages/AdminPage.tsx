@@ -227,7 +227,7 @@ export default function AdminPage() {
         );
     }
 
-    function handleBulk(kind: 'bulk-grant' | 'bulk-return' | 'bulk-revoke' | 'bulk-unsee') {
+    function handleBulk(kind: 'bulk-grant' | 'bulk-return' | 'bulk-revoke' | 'bulk-see' | 'bulk-unsee') {
         if (selectedUserId === null) return;
         if (
             kind === 'bulk-revoke' &&
@@ -315,8 +315,8 @@ export default function AdminPage() {
                         {actionError && <p className="form-error">{actionError}</p>}
 
                         <div className="admin-bulk-actions">
-                            <label>
-                                Type
+                            <label className="admin-bulk-actions__filter">
+                                Apply to
                                 <select
                                     value={typeFilterValue}
                                     onChange={(e) => setTypeFilterValue(e.target.value)}
@@ -338,35 +338,62 @@ export default function AdminPage() {
                                     </optgroup>
                                 </select>
                             </label>
-                            <button
-                                type="button"
-                                disabled={actionPending}
-                                onClick={() => handleBulk('bulk-grant')}
-                            >
-                                Grant matching
-                            </button>
-                            <button
-                                type="button"
-                                disabled={actionPending}
-                                onClick={() => handleBulk('bulk-return')}
-                            >
-                                Return matching
-                            </button>
-                            <button
-                                type="button"
-                                className="admin-button--danger"
-                                disabled={actionPending}
-                                onClick={() => handleBulk('bulk-revoke')}
-                            >
-                                Revoke matching
-                            </button>
-                            <button
-                                type="button"
-                                disabled={actionPending}
-                                onClick={() => handleBulk('bulk-unsee')}
-                            >
-                                Unsee matching
-                            </button>
+
+                            <div className="admin-bulk-actions__groups">
+                                {/* Ownership: left-to-right in increasing severity -- grant adds,
+                                    return is reversible, revoke is not. */}
+                                <div className="admin-bulk-actions__group">
+                                    <span className="admin-bulk-actions__group-label">Ownership</span>
+                                    <div className="admin-bulk-actions__buttons">
+                                        <button
+                                            type="button"
+                                            disabled={actionPending}
+                                            onClick={() => handleBulk('bulk-grant')}
+                                        >
+                                            Grant
+                                        </button>
+                                        <button
+                                            type="button"
+                                            title="Takes matching cards back from them, but keeps the cards in their history"
+                                            disabled={actionPending}
+                                            onClick={() => handleBulk('bulk-return')}
+                                        >
+                                            Return
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="admin-button--danger"
+                                            title="Permanently erases matching cards from their history -- cannot be undone"
+                                            disabled={actionPending}
+                                            onClick={() => handleBulk('bulk-revoke')}
+                                        >
+                                            Revoke
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Seen status: independent of ownership above -- just the
+                                    greyscale "seen but not collected" flag. */}
+                                <div className="admin-bulk-actions__group">
+                                    <span className="admin-bulk-actions__group-label">Seen status</span>
+                                    <div className="admin-bulk-actions__buttons">
+                                        <button
+                                            type="button"
+                                            disabled={actionPending}
+                                            onClick={() => handleBulk('bulk-see')}
+                                        >
+                                            See
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled={actionPending}
+                                            onClick={() => handleBulk('bulk-unsee')}
+                                        >
+                                            Unsee
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <input
@@ -442,6 +469,7 @@ export default function AdminPage() {
                                                                     </button>
                                                                     <button
                                                                         type="button"
+                                                                        title="Takes it back from them, but keeps it in their history"
                                                                         disabled={actionPending}
                                                                         onClick={() =>
                                                                             handleReturn(
@@ -456,6 +484,7 @@ export default function AdminPage() {
                                                             <button
                                                                 type="button"
                                                                 className="admin-button--danger"
+                                                                title="Permanently erases this from their history -- cannot be undone"
                                                                 disabled={actionPending}
                                                                 onClick={() =>
                                                                     handleRevoke(instance.cardInstanceId)
