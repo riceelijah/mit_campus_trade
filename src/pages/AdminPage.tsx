@@ -227,7 +227,7 @@ export default function AdminPage() {
         );
     }
 
-    function handleBulk(kind: 'bulk-grant' | 'bulk-return' | 'bulk-revoke') {
+    function handleBulk(kind: 'bulk-grant' | 'bulk-return' | 'bulk-revoke' | 'bulk-unsee') {
         if (selectedUserId === null) return;
         if (
             kind === 'bulk-revoke' &&
@@ -359,6 +359,13 @@ export default function AdminPage() {
                                 onClick={() => handleBulk('bulk-revoke')}
                             >
                                 Revoke matching
+                            </button>
+                            <button
+                                type="button"
+                                disabled={actionPending}
+                                onClick={() => handleBulk('bulk-unsee')}
+                            >
+                                Unsee matching
                             </button>
                         </div>
 
