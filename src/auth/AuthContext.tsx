@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User } from '../user';
 import { Card } from '../card';
-import { FlagColor, PublicUserJson, PublicCardInstanceJson } from '../types';
+import { FlagColor, PublicUserJson, PublicCardInstanceJson, MyCardsJson } from '../types';
 import { getSupercard } from '../data/supercards';
 import { extractError } from '../lib/api';
 
@@ -44,8 +44,24 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function userFromJson(json: PublicUserJson, collected: Card[] = [], owned: Card[] = []): User {
-    return new User(json.id, json.username, json.name, json.email, json.team, json.isAdmin, collected, owned);
+function userFromJson(
+    json: PublicUserJson,
+    collected: Card[] = [],
+    owned: Card[] = [],
+    seen: ReadonlySet<number> = new Set(),
+): User {
+    return new User(
+        json.id,
+        json.username,
+        json.name,
+        json.email,
+        json.team,
+        json.isAdmin,
+        collected,
+        owned,
+        seen,
+        json.collectionViewMode,
+    );
 }
 
 /**
@@ -79,13 +95,14 @@ async function loadFullUser(json: PublicUserJson): Promise<User> {
 
     const res = await fetch('/api/me/cards', { credentials: 'include' });
     if (!res.ok) {
-        return bareUser; // still a valid User -- empty collected/owned, not "no user"
+        return bareUser; // still a valid User -- empty collected/owned/seen, not "no user"
     }
-    const body = await res.json();
+    const body: MyCardsJson = await res.json();
     const collected = cardsFromJson(body.collected);
     const owned = collected.filter((card) => card.currentOwner?.equals(bareUser) ?? false);
+    const seen = new Set(body.seen);
 
-    return userFromJson(json, collected, owned);
+    return userFromJson(json, collected, owned, seen);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

@@ -1,3 +1,98 @@
+/* Messina Sans -- licensed webfont files live in public/font, served at /font/*. Only the
+   weights actually used by this site's type ladder (300/400/600/700/900) are wired up; skips
+   the "Book" cut in that folder since nothing here requests a weight between Regular and
+   SemiBold. font-display: swap avoids invisible text while each weight loads. */
+@font-face {
+    font-family: 'Messina Sans';
+    src:
+        url('/font/MessinaSans-Light.woff2') format('woff2'),
+        url('/font/MessinaSans-Light.woff') format('woff');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Messina Sans';
+    src:
+        url('/font/MessinaSans-LightItalic.woff2') format('woff2'),
+        url('/font/MessinaSans-LightItalic.woff') format('woff');
+    font-weight: 300;
+    font-style: italic;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Messina Sans';
+    src:
+        url('/font/MessinaSans-Regular.woff2') format('woff2'),
+        url('/font/MessinaSans-Regular.woff') format('woff');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Messina Sans';
+    src:
+        url('/font/MessinaSans-RegularItalic.woff2') format('woff2'),
+        url('/font/MessinaSans-RegularItalic.woff') format('woff');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Messina Sans';
+    src:
+        url('/font/MessinaSans-SemiBold.woff2') format('woff2'),
+        url('/font/MessinaSans-SemiBold.woff') format('woff');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Messina Sans';
+    src:
+        url('/font/MessinaSans-SemiBoldItalic.woff2') format('woff2'),
+        url('/font/MessinaSans-SemiBoldItalic.woff') format('woff');
+    font-weight: 600;
+    font-style: italic;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Messina Sans';
+    src:
+        url('/font/MessinaSans-Bold.woff2') format('woff2'),
+        url('/font/MessinaSans-Bold.woff') format('woff');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Messina Sans';
+    src:
+        url('/font/MessinaSans-BoldItalic.woff2') format('woff2'),
+        url('/font/MessinaSans-BoldItalic.woff') format('woff');
+    font-weight: 700;
+    font-style: italic;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Messina Sans';
+    src:
+        url('/font/MessinaSans-Black.woff2') format('woff2'),
+        url('/font/MessinaSans-Black.woff') format('woff');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Messina Sans';
+    src:
+        url('/font/MessinaSans-BlackItalic.woff2') format('woff2'),
+        url('/font/MessinaSans-BlackItalic.woff') format('woff');
+    font-weight: 900;
+    font-style: italic;
+    font-display: swap;
+}
+
 * {
     box-sizing: border-box;
 }
@@ -5,6 +100,7 @@
 body {
     margin: 0;
     font-family:
+        'Messina Sans',
         system-ui,
         -apple-system,
         'Segoe UI',
@@ -25,6 +121,40 @@ a {
 
 /* --- nav --- */
 
+/* Cycles the navbar's background through the full hue wheel, dark and saturated enough at
+   every step that the white logo/links/scan button stay legible throughout. Stops are 45deg
+   apart (0/360 match, so the loop has no visible seam) -- more stops than a bare 0%/100% pair
+   keeps the ride smooth despite browsers interpolating keyframe colors in RGB, not HSL. */
+@keyframes navbar-hue-shift {
+    0% {
+        background-color: hsl(0, 65%, 14%);
+    }
+    12.5% {
+        background-color: hsl(45, 65%, 14%);
+    }
+    25% {
+        background-color: hsl(90, 60%, 13%);
+    }
+    37.5% {
+        background-color: hsl(135, 60%, 13%);
+    }
+    50% {
+        background-color: hsl(180, 60%, 14%);
+    }
+    62.5% {
+        background-color: hsl(225, 65%, 15%);
+    }
+    75% {
+        background-color: hsl(270, 65%, 15%);
+    }
+    87.5% {
+        background-color: hsl(315, 65%, 15%);
+    }
+    100% {
+        background-color: hsl(360, 65%, 14%);
+    }
+}
+
 .navbar {
     display: flex;
     align-items: center;
@@ -33,6 +163,13 @@ a {
     background: #111;
     color: #fff;
     position: relative;
+    animation: navbar-hue-shift 40s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .navbar {
+        animation: none;
+    }
 }
 
 .navbar__brand {
@@ -162,6 +299,19 @@ a {
     opacity: 0.75;
 }
 
+.card-art--unseen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2a2a2a;
+}
+
+.card-art__number {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #666;
+}
+
 /* --- flip card (card detail page hero) --- */
 
 .flip-card {
@@ -231,27 +381,146 @@ a {
     white-space: nowrap;
 }
 
-/* --- gallery (home page) --- */
-
-.gallery {
-    display: flex;
-    gap: 14px;
-    overflow-x: auto;
-    padding: 12px 4px 20px;
-    scroll-snap-type: x proximity;
+.card-thumbnail--locked {
+    cursor: default;
 }
 
-.gallery .card-thumbnail {
-    scroll-snap-align: start;
+/* --- gallery (home page) --- */
+
+/* A coverflow-style carousel: overflow-x auto is what makes it scrollable (touch/trackpad/
+   mouse-drag all work natively, for free), and per CSS's overflow spec, setting only
+   overflow-x forces overflow-y to compute as auto too (an explicit "visible" wouldn't stick)
+   -- so the generous vertical padding below isn't just aesthetic, it's what stops the
+   center card's scale-up from clipping against the container or triggering a vertical
+   scrollbar. Scrollbar hidden since native scroll here is an input method, not a visible UI
+   element -- the point is the coverflow effect, not a scrollbar. Cards are plain divs (not
+   CardThumbnail's <Link>), rendered by ScrollingGallery directly -- clicking through was
+   intentionally dropped for this scroll-driven carousel. */
+.gallery {
+    display: flex;
+    align-items: center;
+    /* transform: scale() grows a card without pushing its layout neighbors, which is what
+       lets the center card overlap adjacent ones purely from being enlarged -- 50px is enough
+       *base* spacing that even the two cards nearest the very center (each around 1.32x
+       scale, the worst case) end up with real daylight between them instead of touching. */
+    gap: 50px;
+    overflow-x: auto;
+    padding: 70px 4px 60px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    cursor: grab;
+    /* Without this, .gallery__item's offsetParent resolves all the way up to <body> (since
+       nothing in between is positioned), so item.offsetLeft comes back relative to the whole
+       page rather than to .gallery's own content -- silently off by .gallery's own position
+       on the page (used together with container.scrollLeft, which IS always gallery-relative,
+       in ScrollingGallery's distance/centering math). Making .gallery itself the offsetParent
+       fixes that at the source. */
+    position: relative;
+}
+
+.gallery::-webkit-scrollbar {
+    display: none;
+}
+
+.gallery:active {
+    cursor: grabbing;
+}
+
+.gallery__item {
+    flex: none;
+    transform-origin: center center;
 }
 
 /* --- grid (collection page) --- */
 
+/* Flexbox, not grid -- with fixed-width (130px) thumbnails, grid's auto-fill leaves a partial
+   last row flush against the left edge (each row's empty leftover tracks sit on the right,
+   since grid always fills tracks in reading order). Flexbox wrapping centers every row,
+   including a short last one, which is what "always centered" actually needs. */
 .card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 18px;
     margin-top: 16px;
+}
+
+.card-grid .card-thumbnail {
+    transition: transform 0.2s ease-out;
+}
+
+/* Grow + a slight tilt on hover -- not locked (unseen) cards, which aren't interactive.
+   The tilt direction/amount varies per card via an nth-child cycle rather than every card
+   tilting identically, so a hovered row doesn't look robotic; still "minor" throughout
+   (1.5-3deg, 5-8% scale). z-index lifts the hovered card above its neighbors so the grow
+   doesn't get visually clipped by them. */
+.card-grid .card-thumbnail:hover:not(.card-thumbnail--locked) {
+    position: relative;
+    z-index: 1;
+}
+
+.card-grid .card-thumbnail:nth-child(6n + 1):hover:not(.card-thumbnail--locked) {
+    transform: scale(1.08) rotate(-3deg);
+}
+.card-grid .card-thumbnail:nth-child(6n + 2):hover:not(.card-thumbnail--locked) {
+    transform: scale(1.06) rotate(2deg);
+}
+.card-grid .card-thumbnail:nth-child(6n + 3):hover:not(.card-thumbnail--locked) {
+    transform: scale(1.07) rotate(-1.5deg);
+}
+.card-grid .card-thumbnail:nth-child(6n + 4):hover:not(.card-thumbnail--locked) {
+    transform: scale(1.05) rotate(3deg);
+}
+.card-grid .card-thumbnail:nth-child(6n + 5):hover:not(.card-thumbnail--locked) {
+    transform: scale(1.08) rotate(-2deg);
+}
+.card-grid .card-thumbnail:nth-child(6n + 6):hover:not(.card-thumbnail--locked) {
+    transform: scale(1.06) rotate(1.5deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .card-grid .card-thumbnail {
+        transition: none;
+    }
+    .card-grid .card-thumbnail:hover {
+        transform: none;
+    }
+}
+
+.collection-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.collection-controls__group {
+    display: flex;
+    gap: 6px;
+}
+
+.toggle-button {
+    background: #eee;
+    border: 1px solid #ccc;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.toggle-button--active {
+    background: #111;
+    color: #fff;
+    border-color: #111;
+}
+
+.collection-controls__sort {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
 }
 
 /* --- card detail page --- */
@@ -416,18 +685,47 @@ a {
 
 /* --- admin page --- */
 
+.admin-settings {
+    margin: 20px 0;
+}
+
+.admin-settings__toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .admin-layout {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    /* Grid items default to min-width: auto (their content's intrinsic width), which a
+       5-column table with real email addresses comfortably exceeds -- without min-width: 0
+       on the children below, that intrinsic width would force this whole grid (and the page
+       with it) to grow past the viewport instead of letting .admin-table__scroll's own
+       overflow-x handle it internally. That's what caused both the always-on desktop
+       scrollbar (the old 320px column genuinely wasn't enough, so the *inner* scrollbar kicked
+       in even with empty space to spare) and the mobile page-level horizontal scroll
+       (confirmed via a real width audit -- not a guess). */
+    grid-template-columns: 420px 1fr;
     gap: 24px;
     align-items: start;
     margin-top: 16px;
+}
+
+/* No student selected yet -- let the list use the full width instead of leaving the second
+   column empty and the table cramped into 380px for no reason. */
+.admin-layout--single {
+    grid-template-columns: 1fr;
 }
 
 @media (max-width: 800px) {
     .admin-layout {
         grid-template-columns: 1fr;
     }
+}
+
+.admin-users-panel,
+.admin-detail {
+    min-width: 0;
 }
 
 .admin-table__scroll {
@@ -466,14 +764,163 @@ a {
     padding: 16px;
 }
 
+.admin-search {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    margin: 8px 0;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.admin-button--danger {
+    color: #b3261e;
+    border-color: #b3261e;
+}
+
+.admin-bulk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 10px;
+    margin: 12px 0;
+    padding: 12px;
+    background: #f7f7f7;
+    border-radius: 8px;
+}
+
+.admin-bulk-actions label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+    color: #444;
+}
+
 .admin-card-list {
     list-style: none;
     margin: 0 0 16px;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     font-size: 0.9rem;
+    max-height: 640px;
+    overflow-y: auto;
+}
+
+.admin-card-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.admin-card-row__swatch {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin-top: 3px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.admin-card-row__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.admin-card-row__title {
+    font-weight: 600;
+}
+
+.admin-card-row__categories {
+    margin-left: 8px;
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.admin-card-row__seen {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 0.85rem;
+    color: #444;
+}
+
+.admin-instance-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.admin-instance-chip {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: #f2f2f2;
+    border-radius: 999px;
+    font-size: 0.8rem;
+}
+
+.admin-instance-chip button {
+    padding: 2px 8px;
+    font-size: 0.78rem;
+}
+
+.admin-instance-chip__note {
+    color: #888;
+}
+
+.admin-transfer-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 1;
+    width: 220px;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.admin-transfer-panel input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.admin-transfer-panel ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.admin-transfer-panel li button {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 4px 6px;
+    cursor: pointer;
+}
+
+.admin-transfer-panel li button:hover {
+    background: #f2f2f2;
 }
 
 /* --- qr scanner --- */
@@ -560,4 +1007,48 @@ a {
 
 .qr-modal__art {
     width: 140px;
+}
+
+/* --- toast (pop-up notification) --- */
+
+.toast {
+    position: fixed;
+    top: 76px; /* sits just under the navbar at the top of the page */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: calc(100% - 32px);
+    padding: 12px 16px;
+    background: #1a1a1a;
+    color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    font-size: 0.9rem;
+    cursor: pointer;
+    animation: toast-in 0.2s ease-out;
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -8px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+.toast__close {
+    flex: none;
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
 }

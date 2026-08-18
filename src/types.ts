@@ -36,6 +36,19 @@ export const VALID_COLORS: ReadonlySet<FlagColor> = new Set([
 export type FrameType = 'bubble' | 'rect';
 
 /**
+ * The Collection page's visibility toggle -- 'collected' shows only cards ever collected,
+ * 'seen' additionally includes scanned-but-not-registered cards, 'all' shows the full dex.
+ * Persisted per account (see User.collectionViewMode) so it survives across sessions/devices.
+ */
+export type CollectionViewMode = 'collected' | 'seen' | 'all';
+
+export const VALID_COLLECTION_VIEW_MODES: ReadonlySet<CollectionViewMode> = new Set([
+    'collected',
+    'seen',
+    'all',
+]);
+
+/**
  * Throws an Error with `message` if `condition` is false.
  * Used by every class's checkRep() to enforce its rep invariant.
  */
@@ -56,6 +69,7 @@ export interface PublicUserJson {
     email: string;
     team: FlagColor;
     isAdmin: boolean;
+    collectionViewMode: CollectionViewMode;
 }
 
 /** One entry in a card instance's ownership history, as sent over the API. */
@@ -69,4 +83,20 @@ export interface PublicCardInstanceJson {
     cardInstanceId: number;
     supercardN: number;
     custody: PublicCustodyEventJson[];
+}
+
+/** The shape returned by GET /api/me/cards. */
+export interface MyCardsJson {
+    collected: PublicCardInstanceJson[];
+    /** Supercard (dex) numbers the viewer has scanned via "Just looking" or collected. */
+    seen: number[];
+}
+
+/** The shape returned by GET /api/admin/users/:userId/cards. */
+export interface AdminUserCardsJson {
+    /** Every card instance this student has ever held, current or past (their full history --
+     *  unlike the self-service endpoint's "collected", named "cards" here since the admin UI
+     *  needs to distinguish currently-owned from historical within the same list). */
+    cards: PublicCardInstanceJson[];
+    seen: number[];
 }

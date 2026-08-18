@@ -1,16 +1,20 @@
-import { FlagColor, assert } from './types';
+import { FlagColor, CollectionViewMode, VALID_COLLECTION_VIEW_MODES, assert } from './types';
 import type { Card } from './card';
 
 export class User {
     /**
-     * AF(id, username, name, email, team, isAdmin, collected, owned): a registered MIT
-     *  Campus Trade student account belonging to the student named `name`, reachable at
-     *  `email`, uniquely identified by `id` and by `username` (the local part of `email`,
-     *  before '@'), on team `team` (one of the 12 flag colors freshmen packs come in), with
-     *  administrative privileges over the site iff `isAdmin`; `collected` is every card
-     *  instance this student has ever owned (their "Pokedex" -- includes cards later traded
-     *  away), and `owned` is the subset of `collected` this student currently holds (i.e. is
-     *  the latest/current owner of).
+     * AF(id, username, name, email, team, isAdmin, collected, owned, seen,
+     *  collectionViewMode): a registered MIT Campus Trade student account belonging to the
+     *  student named `name`, reachable at `email`, uniquely identified by `id` and by
+     *  `username` (the local part of `email`, before '@'), on team `team` (one of the 12 flag
+     *  colors freshmen packs come in), with administrative privileges over the site iff
+     *  `isAdmin`; `collected` is every card instance this student has ever owned (their
+     *  "Pokedex" -- includes cards later traded away), `owned` is the subset of `collected`
+     *  this student currently holds (i.e. is the latest/current owner of), `seen` is the set
+     *  of supercard (dex) numbers this student has scanned via the QR scanner's "Just
+     *  looking" option without registering them to their collection, and
+     *  `collectionViewMode` is this student's last-selected Collected/Seen/All visibility
+     *  toggle on the Collection page, remembered across sessions.
      *
      * RI:
      *  - Number.isInteger(id) && id >= 1
@@ -22,6 +26,8 @@ export class User {
      *    currentOwner equals this User
      *  - every card in collected has this User somewhere in its custody history
      *    (card.hasBeenOwnedBy(this))
+     *  - every element of seen is a positive integer
+     *  - collectionViewMode is one of VALID_COLLECTION_VIEW_MODES
      *  - NOTE: collected and owned are allowed to both be empty even for a student who truly
      *    does own cards -- this User class also stands in for *other* students as they
      *    appear inside a Card's custody chain (see card.ts's CustodyRecord), and only their
@@ -29,6 +35,12 @@ export class User {
      *    empty collected/owned here means either "this student really has nothing" or "this
      *    User's collection was never loaded"; this class only guarantees that whatever *is*
      *    present is self-consistent, not that non-empty is required.
+     *  - NOTE: seen is deliberately NOT cross-checked against collected/owned (e.g. "every
+     *    collected card's number must also be in seen"). A merely-seen supercard has no real
+     *    Card instance/custody record behind it -- Card.hasBeenOwnedBy would never be true
+     *    for it -- so it can't reuse the collected/owned pattern, and per the same
+     *    incomplete-snapshot reasoning as collected/owned above, a User's seen set is
+     *    whatever was loaded for it, not a derived/complete view.
      *
      * SFRE:
      *  - id, username, name, email, team, isAdmin are all `readonly` and are primitives
@@ -38,7 +50,8 @@ export class User {
      *  - collected and owned are `Card[]`, and arrays are mutable, so they're stored in
      *    private `_collected`/`_owned` fields and exposed only through getters that return a
      *    fresh copy of the array (so a caller can't splice/push into the rep through the
-     *    returned value).
+     *    returned value). seen is a `Set<number>`, stored in a private `_seen` field and
+     *    exposed only through a getter that returns a fresh copy, for the same reason.
      *  - The individual `Card` elements themselves are aliased, not deep-copied: this class
      *    trusts that a Card, once handed to a User here, is never mutated again. That holds
      *    in practice throughout this app -- Cards are always built fresh from server JSON
@@ -49,6 +62,7 @@ export class User {
 
     private readonly _collected: Card[];
     private readonly _owned: Card[];
+    private readonly _seen: Set<number>;
 
     /**
      * Creates a User.
@@ -62,6 +76,10 @@ export class User {
      * @param collected every card instance this student has ever owned, current or past;
      *        defaults to empty. Empty does not necessarily mean "owns nothing" -- see AF.
      * @param owned the subset of `collected` this student currently holds; defaults to empty
+     * @param seen supercard numbers this student has scanned via "Just looking" without
+     *        registering them; defaults to empty
+     * @param collectionViewMode this student's remembered Collection-page visibility toggle;
+     *        defaults to 'all'
      */
     public constructor(
         public readonly id: number,
@@ -72,9 +90,12 @@ export class User {
         public readonly isAdmin: boolean,
         collected: Card[] = [],
         owned: Card[] = [],
+        seen: ReadonlySet<number> = new Set(),
+        public readonly collectionViewMode: CollectionViewMode = 'all',
     ) {
         this._collected = [...collected];
         this._owned = [...owned];
+        this._seen = new Set(seen);
         this.checkRep();
     }
 
@@ -92,6 +113,16 @@ export class User {
      */
     public get owned(): Card[] {
         return [...this._owned];
+    }
+
+    /**
+     * @returns every supercard (dex) number this student has scanned via "Just looking"
+     *          (or, in practice, by collecting a card -- see server's grantCardInstance); a
+     *          fresh copy, safe for the caller to mutate. Deliberately a bare Set<number>,
+     *          not Card[] like collected/owned -- see the AF's NOTE on seen above.
+     */
+    public get seen(): ReadonlySet<number> {
+        return new Set(this._seen);
     }
 
     /**
@@ -132,5 +163,17 @@ export class User {
                 'every collected card must have this user somewhere in its custody history',
             );
         }
+
+        for (const n of this._seen) {
+            assert(
+                Number.isInteger(n) && n >= 1,
+                'seen must contain only positive integer supercard numbers',
+            );
+        }
+
+        assert(
+            VALID_COLLECTION_VIEW_MODES.has(this.collectionViewMode),
+            'collectionViewMode must be one of VALID_COLLECTION_VIEW_MODES',
+        );
     }
 }
