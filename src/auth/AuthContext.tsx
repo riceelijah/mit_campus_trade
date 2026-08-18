@@ -25,22 +25,27 @@ export interface ChangePasswordData {
 }
 
 interface AuthContextValue {
-    /** The logged-in viewer, or null if nobody's logged in. */
+    /** The logged-in viewer, or null if nobody's logged in -- collected/owned cards and all. */
     user: User | null;
-    /** The logged-in viewer's owned card instances, custody chains and all. */
-    ownedCards: Card[];
     /** True until the initial "am I logged in?" check has resolved. */
     loading: boolean;
     register(data: RegisterData): Promise<void>;
     login(data: LoginData): Promise<void>;
     logout(): Promise<void>;
     changePassword(data: ChangePasswordData): Promise<void>;
+    /**
+     * Re-fetches the logged-in viewer's own profile plus collected/owned cards and replaces
+     * `user` with the result. Exposed mainly for upcoming trade functionality: a completed
+     * trade changes the viewer's owned/collected lists server-side, and this lets a future
+     * trade UI ask AuthContext to pick up the new state without a full page reload.
+     */
+    refreshUser(): Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function userFromJson(json: PublicUserJson): User {
-    return new User(json.id, json.username, json.name, json.email, json.team, json.isAdmin);
+function userFromJson(json: PublicUserJson, collected: Card[] = [], owned: Card[] = []): User {
+    return new User(json.id, json.username, json.name, json.email, json.team, json.isAdmin, collected, owned);
 }
 
 /**
@@ -62,69 +67,69 @@ function cardsFromJson(raw: PublicCardInstanceJson[]): Card[] {
     return cards;
 }
 
+/**
+ * Builds the full logged-in-viewer User -- profile fields plus both card lists -- from a
+ * bare profile JSON, by additionally fetching and reconstructing GET /api/me/cards. Used by
+ * every place that establishes or refreshes the session (initial load, register, login,
+ * refreshUser) so each does exactly one setUser() with the final, fully-populated User,
+ * instead of a bare user first and a second render once cards arrive.
+ */
+async function loadFullUser(json: PublicUserJson): Promise<User> {
+    const bareUser = userFromJson(json); // stand-in for currentOwner comparisons below; equals() is by id only
+
+    const res = await fetch('/api/me/cards', { credentials: 'include' });
+    if (!res.ok) {
+        return bareUser; // still a valid User -- empty collected/owned, not "no user"
+    }
+    const body = await res.json();
+    const collected = cardsFromJson(body.collected);
+    const owned = collected.filter((card) => card.currentOwner?.equals(bareUser) ?? false);
+
+    return userFromJson(json, collected, owned);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
-    const [ownedCards, setOwnedCards] = useState<Card[]>([]);
     const [loading, setLoading] = useState(true);
-
-    const refreshOwnedCards = useCallback(async () => {
-        const res = await fetch('/api/me/cards', { credentials: 'include' });
-        if (!res.ok) {
-            setOwnedCards([]);
-            return;
-        }
-        const body = await res.json();
-        setOwnedCards(cardsFromJson(body.cards));
-    }, []);
 
     useEffect(() => {
         (async () => {
             const res = await fetch('/api/auth/me', { credentials: 'include' });
             if (res.ok) {
                 const body = await res.json();
-                setUser(userFromJson(body.user));
-                await refreshOwnedCards();
+                setUser(await loadFullUser(body.user));
             }
             setLoading(false);
         })();
-    }, [refreshOwnedCards]);
+    }, []);
 
-    const register = useCallback(
-        async (data: RegisterData) => {
-            const res = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(data),
-            });
-            if (!res.ok) throw new Error(await extractError(res));
-            const body = await res.json();
-            setUser(userFromJson(body.user));
-            await refreshOwnedCards();
-        },
-        [refreshOwnedCards],
-    );
+    const register = useCallback(async (data: RegisterData) => {
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error(await extractError(res));
+        const body = await res.json();
+        setUser(await loadFullUser(body.user));
+    }, []);
 
-    const login = useCallback(
-        async (data: LoginData) => {
-            const res = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(data),
-            });
-            if (!res.ok) throw new Error(await extractError(res));
-            const body = await res.json();
-            setUser(userFromJson(body.user));
-            await refreshOwnedCards();
-        },
-        [refreshOwnedCards],
-    );
+    const login = useCallback(async (data: LoginData) => {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error(await extractError(res));
+        const body = await res.json();
+        setUser(await loadFullUser(body.user));
+    }, []);
 
     const logout = useCallback(async () => {
         await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
         setUser(null);
-        setOwnedCards([]);
     }, []);
 
     const changePassword = useCallback(async (data: ChangePasswordData) => {
@@ -137,8 +142,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!res.ok) throw new Error(await extractError(res));
     }, []);
 
+    const refreshUser = useCallback(async () => {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) {
+            setUser(null);
+            return;
+        }
+        const body = await res.json();
+        setUser(await loadFullUser(body.user));
+    }, []);
+
     return (
-        <AuthContext.Provider value={{ user, ownedCards, loading, register, login, logout, changePassword }}>
+        <AuthContext.Provider value={{ user, loading, register, login, logout, changePassword, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );

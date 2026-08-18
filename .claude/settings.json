@@ -29,7 +29,22 @@
       "Bash(curl -s -c /tmp/campus_trade_admin_cookies.txt -X POST http://localhost:3099/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"ejrice@mit.edu\",\"password\":\"password123\"}')",
       "Bash(curl -s -b /tmp/campus_trade_admin_cookies2.txt -X POST http://localhost:3099/api/admin/card-instances/2/transfer -H 'Content-Type: application/json' -d '{\"newOwnerUserId\":3}')",
       "Bash(curl -s -b /tmp/campus_trade_admin_cookies2.txt -X POST http://localhost:3099/api/auth/change-password -H 'Content-Type: application/json' -d '{\"currentPassword\":\"password123\",\"newPassword\":\"short\",\"confirmNewPassword\":\"short\"}')",
-      "Bash(curl -s -b /tmp/campus_trade_admin_cookies2.txt -X POST http://localhost:3099/api/auth/change-password -H 'Content-Type: application/json' -d '{\"currentPassword\":\"password123\",\"newPassword\":\"newpassword456\",\"confirmNewPassword\":\"newpassword456\"}')"
+      "Bash(curl -s -b /tmp/campus_trade_admin_cookies2.txt -X POST http://localhost:3099/api/auth/change-password -H 'Content-Type: application/json' -d '{\"currentPassword\":\"password123\",\"newPassword\":\"newpassword456\",\"confirmNewPassword\":\"newpassword456\"}')",
+      "WebFetch(domain:app.notion.com)",
+      "WebSearch",
+      "WebFetch(domain:app.cortico.ai)",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/120.0 Safari/537.36\" \"https://app.cortico.ai/highlight/5357532\")",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/120.0 Safari/537.36\" \"https://app.cortico.ai/highlight/5357532\" -o /tmp/cortico_highlight.html)",
+      "Bash(curl -s -A \"Mozilla/5.0\" \"https://embed.cortico.ai/oembed/?url=https%3A%2F%2Fembed.cortico.ai%2F%3Fhid%3D5357532\")",
+      "Bash(curl -s -c /tmp/ct_admin3.txt -X POST http://localhost:3099/api/auth/register -H 'Content-Type: application/json' -d '{\"name\":\"Admin Smoke\",\"email\":\"ejrice@mit.edu\",\"team\":\"blue\",\"password\":\"password123\",\"confirmPassword\":\"password123\"}')",
+      "Bash(curl -s -b /tmp/ct_admin4.txt -X POST http://localhost:3099/api/admin/card-instances/2/transfer -H 'Content-Type: application/json' -d '{\"newOwnerUserId\":3}')",
+      "Bash(curl -s -b /tmp/ct_user4.txt http://localhost:3099/api/me/cards)",
+      "Bash(lsof -ti:5173 -sTCP:LISTEN)",
+      "Bash(timeout 30 bash -c 'until curl -sf http://localhost:5173 >/dev/null; do sleep 1; done')",
+      "Bash(timeout 15 bash -c 'until curl -sf http://localhost:3001/api/auth/me >/dev/null 2>&1 || curl -s http://localhost:3001/api/auth/me | grep -q error; do sleep 1; done')",
+      "Bash(node -e \"require\\('playwright'\\); console.log\\('playwright available'\\)\")",
+      "Bash(npx -y playwright --version)",
+      "Bash(git status *)"
     ],
     "additionalDirectories": [
       "/Users/riceelijah/Desktop/dev/other/campus_trade/server"

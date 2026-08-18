@@ -117,6 +117,16 @@ const stmts = {
         WHERE l.user_id = ?
         ORDER BY ci.id
     `),
+    // Every card instance the user has EVER appeared in custody_events for, current or past
+    // owner alike -- the "Pokedex" query, as opposed to cardInstancesOwnedBy's "current owner
+    // only". Reuses idx_custody_events_user_id, same as cardInstancesOwnedBy.
+    cardInstancesCollectedBy: db.prepare(`
+        SELECT DISTINCT ci.id, ci.supercard_n
+        FROM card_instances ci
+        JOIN custody_events ce ON ce.card_instance_id = ci.id
+        WHERE ce.user_id = ?
+        ORDER BY ci.id
+    `),
     currentOwnerOfCardInstance: db.prepare(`
         SELECT user_id FROM custody_events
         WHERE card_instance_id = ?
@@ -204,6 +214,10 @@ export function insertCustodyEvent(cardInstanceId: number, userId: number): void
 
 export function cardInstancesOwnedBy(userId: number): CardInstanceRow[] {
     return stmts.cardInstancesOwnedBy.all(userId) as unknown as CardInstanceRow[];
+}
+
+export function cardInstancesCollectedBy(userId: number): CardInstanceRow[] {
+    return stmts.cardInstancesCollectedBy.all(userId) as unknown as CardInstanceRow[];
 }
 
 export function currentOwnerOfCardInstance(cardInstanceId: number): number | undefined {

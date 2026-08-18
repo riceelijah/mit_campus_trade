@@ -361,6 +361,15 @@ export class Card extends Supercard {
     }
 
     /**
+     * @param user a student
+     * @returns true iff `user` appears anywhere in this card's custody history (as a past or
+     *          current owner)
+     */
+    public hasBeenOwnedBy(user: User): boolean {
+        return this._custody.some((record) => record.owner.equals(user));
+    }
+
+    /**
      * Records that this card has been traded to `newOwner`.
      *
      * @param newOwner the student who now owns this card; must not be the current owner

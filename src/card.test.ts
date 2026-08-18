@@ -109,4 +109,21 @@ describe('Card', () => {
         custody.pop();
         expect(card.custody).toHaveLength(1);
     });
+
+    it('hasBeenOwnedBy is true for past and current owners, false for someone who never held it', () => {
+        const card = cardFromRow(VALID_ROW, 1);
+        const alice = studentAt(1);
+        const bob = studentAt(2);
+        const carol = studentAt(3);
+        card.transferTo(alice);
+        card.transferTo(bob);
+        expect(card.hasBeenOwnedBy(alice)).toBe(true);
+        expect(card.hasBeenOwnedBy(bob)).toBe(true);
+        expect(card.hasBeenOwnedBy(carol)).toBe(false);
+    });
+
+    it('hasBeenOwnedBy is false for everyone when a card has never been owned', () => {
+        const card = cardFromRow(VALID_ROW, 1);
+        expect(card.hasBeenOwnedBy(studentAt(1))).toBe(false);
+    });
 });

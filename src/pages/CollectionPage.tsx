@@ -1,9 +1,9 @@
 import { SUPERCARDS } from '../data/supercards';
-import { useOwnedSupercardNumbers } from '../data/ownership';
+import { useCollectedSupercardNumbers } from '../data/ownership';
 import CardGrid from '../components/CardGrid';
 
 export default function CollectionPage() {
-    const owned = useOwnedSupercardNumbers();
+    const collected = useCollectedSupercardNumbers();
 
     return (
         <div>
@@ -12,7 +12,7 @@ export default function CollectionPage() {
                 Cards you've collected appear in full color. Everything else is greyed out until you trade for
                 it.
             </p>
-            <CardGrid cards={SUPERCARDS} isOwned={(supercard) => owned.has(supercard.n)} />
+            <CardGrid cards={SUPERCARDS} isCollected={(supercard) => collected.has(supercard.n)} />
         </div>
     );
 }
