@@ -1,15 +1,16 @@
 import { useParams, Link } from 'react-router-dom';
-import { getSupercard } from '../data/supercards';
+import { getSupercardByHighlightId } from '../data/supercards';
 import { useCollectedCardFor } from '../data/ownership';
 import FlippableCard from '../components/FlippableCard';
 import CustodyChain from '../components/CustodyChain';
 
 export default function CardDetailPage() {
-    const { n } = useParams<{ n: string }>();
-    const supercard = getSupercard(Number(n));
-    // Called unconditionally, before the early return below, per the Rules of Hooks --
-    // Number(n) is always defined even when it doesn't match a real card.
-    const collectedCard = useCollectedCardFor(Number(n));
+    const { highlightId } = useParams<{ highlightId: string }>();
+    const supercard = highlightId ? getSupercardByHighlightId(highlightId) : undefined;
+    // Called unconditionally, before the early return below, per the Rules of Hooks -- -1 is
+    // a sentinel dex number no real Supercard has, so an unmatched route safely resolves to
+    // "not collected" instead of skipping the hook.
+    const collectedCard = useCollectedCardFor(supercard?.n ?? -1);
 
     if (!supercard) {
         return (
@@ -49,10 +50,7 @@ export default function CardDetailPage() {
                     <iframe
                         className="cortico-embed"
                         src={`https://embed.cortico.ai/?hid=${supercard.highlightId}`}
-                        width={570}
-                        height={212}
                         scrolling="no"
-                        frameBorder={0}
                         title={`${supercard.descriptionAttribution}'s interview highlight`}
                     />
                     <p>
