@@ -416,6 +416,15 @@ a {
        in ScrollingGallery's distance/centering math). Making .gallery itself the offsetParent
        fixes that at the source. */
     position: relative;
+    /* The carousel's center-most cards get a z-index up to ~1000 (ScrollingGallery.tsx) so
+       they stack correctly over their own neighbors -- but position:relative alone doesn't
+       contain that, since it only creates a stacking context together with a non-auto
+       z-index. Without isolation, those z-indexes leak into the page's global stacking order
+       and can end up rendering above unrelated fixed-position UI elsewhere (confirmed: the
+       QR scanner modal's backdrop, z-index 100, was one). isolation: isolate walls the
+       carousel's stacking off from the rest of the page regardless of the specific numbers
+       used on either side. */
+    isolation: isolate;
 }
 
 .gallery::-webkit-scrollbar {

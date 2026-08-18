@@ -3,3 +3,4 @@ dist
 *.local
 server/*.db*
 .env
+public/font
