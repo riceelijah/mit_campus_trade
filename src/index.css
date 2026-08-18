@@ -32,6 +32,7 @@ a {
     padding: 14px 24px;
     background: #111;
     color: #fff;
+    position: relative;
 }
 
 .navbar__brand {
@@ -45,6 +46,27 @@ a {
     height: 32px;
     width: auto;
     display: block;
+}
+
+.navbar__hamburger {
+    display: none;
+    background: none;
+    border: none;
+    padding: 4px;
+    color: #fff;
+    cursor: pointer;
+}
+
+.navbar__hamburger-icon {
+    width: 24px;
+    height: 24px;
+    display: block;
+}
+
+.navbar__links {
+    display: flex;
+    align-items: center;
+    gap: 20px;
 }
 
 .navbar__link {
@@ -63,6 +85,38 @@ a {
     padding: 0;
     font: inherit;
     cursor: pointer;
+}
+
+@media (max-width: 900px) {
+    .navbar__hamburger {
+        display: block;
+    }
+
+    .navbar__links {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        background: #111;
+        border-top: 1px solid #333;
+        padding: 8px 24px 16px;
+        z-index: 20;
+    }
+
+    .navbar__links--open {
+        display: flex;
+    }
+
+    .navbar__links .navbar__link,
+    .navbar__links .navbar__button {
+        padding: 10px 0;
+        border-bottom: 1px solid #222;
+        text-align: left;
+    }
 }
 
 /* --- card art / thumbnails --- */
@@ -258,7 +312,11 @@ a {
 }
 
 .cortico-embed {
-    max-width: 100%;
+    display: block;
+    width: 100%;
+    max-width: 570px;
+    aspect-ratio: 570 / 212;
+    height: auto;
     border: none;
 }
 
@@ -372,6 +430,11 @@ a {
     }
 }
 
+.admin-table__scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .admin-table {
     width: 100%;
     border-collapse: collapse;
@@ -411,4 +474,90 @@ a {
     flex-direction: column;
     gap: 8px;
     font-size: 0.9rem;
+}
+
+/* --- qr scanner --- */
+
+.navbar__scan-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: #fff;
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.navbar__scan-button:hover {
+    border-color: #888;
+}
+
+.navbar__scan-icon {
+    width: 18px;
+    height: 18px;
+}
+
+.qr-modal__backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 100;
+}
+
+.qr-modal {
+    position: relative;
+    background: #fff;
+    color: #1a1a1a;
+    border-radius: 10px;
+    padding: 24px;
+    width: 100%;
+    max-width: 420px;
+    max-height: 90vh;
+    overflow-y: auto;
+    text-align: center;
+}
+
+.qr-modal__close {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #888;
+}
+
+.qr-modal__video {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 8px;
+    background: #000;
+}
+
+.qr-modal__hint {
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.qr-modal__message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.qr-modal__art {
+    width: 140px;
 }

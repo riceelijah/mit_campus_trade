@@ -108,32 +108,34 @@ export default function AdminPage() {
             {usersError && <p className="form-error">{usersError}</p>}
 
             <div className="admin-layout">
-                <table className="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Username</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Team</th>
-                            <th>Admin</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {users.map((u) => (
-                            <tr
-                                key={u.id}
-                                className={u.id === selectedUserId ? 'admin-table__row--selected' : ''}
-                                onClick={() => selectUser(u.id)}
-                            >
-                                <td>{u.username}</td>
-                                <td>{u.name}</td>
-                                <td>{u.email}</td>
-                                <td>{u.team}</td>
-                                <td>{u.isAdmin ? 'yes' : ''}</td>
+                <div className="admin-table__scroll">
+                    <table className="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Team</th>
+                                <th>Admin</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {users.map((u) => (
+                                <tr
+                                    key={u.id}
+                                    className={u.id === selectedUserId ? 'admin-table__row--selected' : ''}
+                                    onClick={() => selectUser(u.id)}
+                                >
+                                    <td>{u.username}</td>
+                                    <td>{u.name}</td>
+                                    <td>{u.email}</td>
+                                    <td>{u.team}</td>
+                                    <td>{u.isAdmin ? 'yes' : ''}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
                 {selectedUserId !== null && (
                     <div className="admin-detail">

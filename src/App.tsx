@@ -18,7 +18,7 @@ export default function App() {
                     <Route path="/" element={<HomePage />} />
                     <Route path="/collection" element={<CollectionPage />} />
                     <Route path="/rules" element={<RulesPage />} />
-                    <Route path="/cards/:n" element={<CardDetailPage />} />
+                    <Route path="/cards/:highlightId" element={<CardDetailPage />} />
                     <Route path="/register" element={<RegisterPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/account" element={<AccountPage />} />
