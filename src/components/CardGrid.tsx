@@ -1,18 +1,23 @@
 import { Supercard } from '../card';
+import { CardVisibility } from '../data/ownership';
 import CardThumbnail from './CardThumbnail';
 
 interface CardGridProps {
     cards: Supercard[];
-    /** Given a card, has the viewer collected it (full color) or not (greyscale)? */
-    isCollected: (supercard: Supercard) => boolean;
+    /** Given a card, how should it render for the current viewer? See CardVisibility. */
+    getVisibility: (supercard: Supercard) => CardVisibility;
 }
 
-/** A wrapping grid of cards, colored or greyscaled per-card by the caller. */
-export default function CardGrid({ cards, isCollected }: CardGridProps) {
+/** A wrapping grid of cards, rendered per-card per the caller's visibility classifier. */
+export default function CardGrid({ cards, getVisibility }: CardGridProps) {
     return (
         <div className="card-grid">
             {cards.map((supercard) => (
-                <CardThumbnail key={supercard.n} supercard={supercard} greyscale={!isCollected(supercard)} />
+                <CardThumbnail
+                    key={supercard.n}
+                    supercard={supercard}
+                    visibility={getVisibility(supercard)}
+                />
             ))}
         </div>
     );

@@ -1,14 +1,23 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { useSettings } from '../settings/SettingsContext';
 import QrScannerModal from './QrScannerModal';
 
 export default function NavBar() {
     const { user, logout } = useAuth();
+    const { settings } = useSettings();
     const navigate = useNavigate();
     const location = useLocation();
     const [menuOpen, setMenuOpen] = useState(false);
     const [scannerOpen, setScannerOpen] = useState(false);
+
+    // Mirrors CollectionPage's own gate: hide the link for signed-out visitors unless an
+    // admin has switched the Collection page to not require login, in which case it should
+    // stay reachable from the nav for them too. Fails closed (hidden) while settings are
+    // still loading, same as the page itself.
+    const collectionRequiresLogin = settings?.collectionRequiresLogin ?? true;
+    const showCollectionLink = Boolean(user) || !collectionRequiresLogin;
 
     // Close the mobile menu whenever the route changes, so it doesn't stay open after
     // following a link.
@@ -76,9 +85,11 @@ export default function NavBar() {
                 <Link to="/" className="navbar__link">
                     Home
                 </Link>
-                <Link to="/collection" className="navbar__link">
-                    Collection
-                </Link>
+                {showCollectionLink && (
+                    <Link to="/collection" className="navbar__link">
+                        Collection
+                    </Link>
+                )}
                 <Link to="/rules" className="navbar__link">
                     Rules &amp; FAQ
                 </Link>

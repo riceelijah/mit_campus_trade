@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import jsQR from 'jsqr';
 import { Supercard } from '../card';
 import { useAuth } from '../auth/AuthContext';
@@ -14,9 +14,12 @@ type ScannerState =
     | { status: 'camera-error'; message: string }
     | { status: 'not-found' }
     | { status: 'not-logged-in'; supercard: Supercard }
+    | { status: 'choose-action'; supercard: Supercard }
     | { status: 'duplicate-confirm'; supercard: Supercard }
     | { status: 'registering'; supercard: Supercard }
+    | { status: 'marking-seen'; supercard: Supercard }
     | { status: 'collect-error'; supercard: Supercard; message: string }
+    | { status: 'seen-error'; supercard: Supercard; message: string }
     | { status: 'success'; supercard: Supercard };
 
 const DECODE_INTERVAL_MS = 250;
@@ -27,13 +30,19 @@ interface QrScannerModalProps {
 
 /**
  * A camera-driven QR scanner, opened from the nav bar. Decodes a card's printed QR code
- * (a URL of the form mitcampustrade.com/cards/{highlightId}) and self-registers it into the
- * logged-in viewer's collection -- prompting to log in/register instead if signed out, and
- * warning (but not blocking) on a card already collected, since physical duplicates are a
- * normal part of trading.
+ * (a URL of the form mitcampustrade.com/cards/{highlightId}) and offers the logged-in viewer
+ * a choice: register it to their collection, or "Just looking" -- mark it seen without
+ * claiming it (shows greyed out in their collection afterward). Warns (but doesn't block) on
+ * a card already collected, since physical duplicates are a normal part of trading. If
+ * signed out, "Just looking" is an ephemeral, unsaved peek (there's no account to attach it
+ * to), alongside links to log in/register in order to actually claim it. Either way, "Just
+ * looking" closes the scanner and takes the viewer straight to the card's own page, handing
+ * off a confirmation message for it to show as a pop-up (see Toast/CardDetailPage) rather
+ * than showing that message here in the modal.
  */
 export default function QrScannerModal({ onClose }: QrScannerModalProps) {
     const { user, refreshUser } = useAuth();
+    const navigate = useNavigate();
     const [state, setState] = useState<ScannerState>({ status: 'requesting-camera' });
 
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -78,6 +87,41 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
         [refreshUser],
     );
 
+    const goToCardWithToast = useCallback(
+        (supercard: Supercard, toast: string) => {
+            onClose();
+            navigate(`/cards/${supercard.highlightId}`, { state: { toast } });
+        },
+        [onClose, navigate],
+    );
+
+    const markSeen = useCallback(
+        async (supercard: Supercard) => {
+            setState({ status: 'marking-seen', supercard });
+            try {
+                const res = await fetch('/api/me/seen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ highlightId: supercard.highlightId }),
+                });
+                if (!res.ok) throw new Error(await extractError(res));
+                await refreshUser();
+                goToCardWithToast(
+                    supercard,
+                    `Marked "${supercard.title}" as seen. It'll show greyed out in your collection until you register a copy.`,
+                );
+            } catch (err) {
+                setState({
+                    status: 'seen-error',
+                    supercard,
+                    message: err instanceof Error ? err.message : 'Something went wrong',
+                });
+            }
+        },
+        [refreshUser, goToCardWithToast],
+    );
+
     const handleDecoded = useCallback(
         (raw: string) => {
             stopCamera();
@@ -95,10 +139,10 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
             if (alreadyHave) {
                 setState({ status: 'duplicate-confirm', supercard });
             } else {
-                collect(supercard);
+                setState({ status: 'choose-action', supercard });
             }
         },
-        [stopCamera, user, collect],
+        [stopCamera, user],
     );
 
     const startDecodeLoop = useCallback(() => {
@@ -218,7 +262,7 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
                     <div className="qr-modal__message">
                         <p>
                             Log in or register to add &ldquo;{state.supercard.title}&rdquo; to your
-                            collection.
+                            collection, or just take a look without saving it.
                         </p>
                         <p>
                             <Link to="/login" onClick={onClose}>
@@ -229,6 +273,32 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
                                 Register
                             </Link>
                         </p>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                goToCardWithToast(
+                                    state.supercard,
+                                    `Just a peek — log in or register to add "${state.supercard.title}" to your collection.`,
+                                )
+                            }
+                        >
+                            Just looking
+                        </button>
+                    </div>
+                )}
+
+                {state.status === 'choose-action' && (
+                    <div className="qr-modal__message">
+                        <div className="qr-modal__art">
+                            <CardArt supercard={state.supercard} />
+                        </div>
+                        <p>You scanned &ldquo;{state.supercard.title}&rdquo;.</p>
+                        <button type="button" onClick={() => collect(state.supercard)}>
+                            Register to my account
+                        </button>
+                        <button type="button" onClick={() => markSeen(state.supercard)}>
+                            Just looking
+                        </button>
                     </div>
                 )}
 
@@ -272,6 +342,19 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
                         </p>
                         <button type="button" onClick={scanAgain}>
                             Scan another
+                        </button>
+                    </div>
+                )}
+
+                {state.status === 'marking-seen' && (
+                    <p className="qr-modal__message">Marking as seen&hellip;</p>
+                )}
+
+                {state.status === 'seen-error' && (
+                    <div className="qr-modal__message">
+                        <p>{state.message}</p>
+                        <button type="button" onClick={() => markSeen(state.supercard)}>
+                            Try again
                         </button>
                     </div>
                 )}

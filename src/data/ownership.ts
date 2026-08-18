@@ -49,3 +49,20 @@ export function useCollectedSupercardNumbers(): ReadonlySet<number> {
     const { user } = useAuth();
     return new Set(user?.collected.map((card) => card.n) ?? []);
 }
+
+/**
+ * @returns the collection/dex numbers of every Supercard the current viewer has scanned via
+ *          "Just looking" (or, in practice, by collecting one -- see User.seen's AF note)
+ */
+export function useSeenSupercardNumbers(): ReadonlySet<number> {
+    const { user } = useAuth();
+    return user?.seen ?? new Set<number>();
+}
+
+/**
+ * The three states a card can render in for the current viewer, from most to least
+ * revealed: 'collected' (full color, clickable), 'seen' (scanned but not registered --
+ * greyscale, still clickable), 'unseen' (never encountered -- a solid placeholder, not
+ * clickable). Shared by CardArt/CardThumbnail/CardGrid and CollectionPage.
+ */
+export type CardVisibility = 'collected' | 'seen' | 'unseen';

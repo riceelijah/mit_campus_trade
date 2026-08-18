@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser';
 import { authRouter } from './routes/auth';
 import { adminRouter } from './routes/admin';
 import { meRouter } from './routes/me';
+import { settingsRouter } from './routes/settings';
 import { SESSION_SECRET } from './auth/session';
 
 const app = express();
@@ -12,6 +13,7 @@ app.use(cookieParser(SESSION_SECRET));
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/me', meRouter);
+app.use('/api/settings', settingsRouter);
 
 // Catch-all error handler -- must be last, and must declare all 4 params (Express uses the
 // arity to recognize it as an error handler). Without this, Express's default handler

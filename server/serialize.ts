@@ -1,4 +1,5 @@
 import { UserRow, CardInstanceRow, CustodyEventWithUser, custodyForCardInstance } from './db';
+import { FlagColor, CollectionViewMode } from '../src/types';
 
 /** The public-facing shape of a user: everything except password_hash. */
 export interface PublicUser {
@@ -6,18 +7,23 @@ export interface PublicUser {
     username: string;
     name: string;
     email: string;
-    team: string;
+    team: FlagColor;
     isAdmin: boolean;
+    collectionViewMode: CollectionViewMode;
 }
 
+// row.team/collection_view_mode are stored as plain TEXT, but every write path (auth.ts's
+// register handler, admin.ts's/me.ts's collection-view-mode endpoints) already validates
+// them before insert/update, so these casts are safe by construction.
 export function sanitizeUser(row: UserRow): PublicUser {
     return {
         id: row.id,
         username: row.username,
         name: row.name,
         email: row.email,
-        team: row.team,
+        team: row.team as FlagColor,
         isAdmin: row.is_admin === 1,
+        collectionViewMode: row.collection_view_mode as CollectionViewMode,
     };
 }
 
@@ -34,8 +40,9 @@ function sanitizeCustodyEvent(ev: CustodyEventWithUser): PublicCustodyEvent {
             username: ev.username,
             name: ev.name,
             email: ev.email,
-            team: ev.team,
+            team: ev.team as FlagColor, // see sanitizeUser -- validated at insert time
             isAdmin: ev.is_admin === 1,
+            collectionViewMode: ev.collection_view_mode as CollectionViewMode,
         },
     };
 }

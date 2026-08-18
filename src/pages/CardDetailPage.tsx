@@ -1,8 +1,10 @@
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { getSupercardByHighlightId } from '../data/supercards';
 import { useCollectedCardFor } from '../data/ownership';
 import FlippableCard from '../components/FlippableCard';
 import CustodyChain from '../components/CustodyChain';
+import Toast from '../components/Toast';
 
 export default function CardDetailPage() {
     const { highlightId } = useParams<{ highlightId: string }>();
@@ -12,6 +14,23 @@ export default function CardDetailPage() {
     // "not collected" instead of skipping the hook.
     const collectedCard = useCollectedCardFor(supercard?.n ?? -1);
 
+    // The QR scanner's "Just looking" option navigates straight here and hands off its
+    // confirmation message via router state, rather than showing it inside the scanner modal.
+    // Consumed once (guarded by the ref) and stripped from history so a refresh or back-nav
+    // doesn't re-show it.
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const consumedToast = useRef(false);
+    useEffect(() => {
+        const state = location.state as { toast?: string } | null;
+        if (!consumedToast.current && state?.toast) {
+            consumedToast.current = true;
+            setToastMessage(state.toast);
+            navigate(location.pathname, { replace: true, state: null });
+        }
+    }, [location, navigate]);
+
     if (!supercard) {
         return (
             <div>
@@ -19,12 +38,15 @@ export default function CardDetailPage() {
                 <p>
                     <Link to="/collection">Back to your collection</Link>
                 </p>
+                {toastMessage && <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />}
             </div>
         );
     }
 
     return (
         <div className="card-detail">
+            {toastMessage && <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />}
+
             <div>
                 <FlippableCard supercard={supercard} />
                 <p className="flip-card__hint">Click the card to flip it over</p>
