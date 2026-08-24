@@ -31,13 +31,16 @@ export const VALID_COLORS: ReadonlySet<FlagColor> = new Set([
 ]);
 
 /**
- * The Collection page's visibility toggle -- 'collected' shows only cards ever collected,
- * 'seen' additionally includes scanned-but-not-registered cards, 'all' shows the full dex.
- * Persisted per account (see User.collectionViewMode) so it survives across sessions/devices.
+ * The Collection page's visibility toggle -- 'owned' shows only cards currently held (the
+ * narrowest view: a subset of 'collected'), 'collected' shows every card ever collected
+ * (including ones since traded away), 'seen' additionally includes scanned-but-not-registered
+ * cards, 'all' shows the full dex. Each is a strict superset of the one before it. Persisted
+ * per account (see User.collectionViewMode) so it survives across sessions/devices.
  */
-export type CollectionViewMode = 'collected' | 'seen' | 'all';
+export type CollectionViewMode = 'owned' | 'collected' | 'seen' | 'all';
 
 export const VALID_COLLECTION_VIEW_MODES: ReadonlySet<CollectionViewMode> = new Set([
+    'owned',
     'collected',
     'seen',
     'all',

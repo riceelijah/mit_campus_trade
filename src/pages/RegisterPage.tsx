@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { FlagColor } from '../types';
 import { isValidMitEmail, isValidPassword } from '../validation';
+import { capitalize } from '../lib/format';
 
 const TEAM_COLORS: FlagColor[] = [
     'red',
@@ -73,7 +74,16 @@ export default function RegisterPage() {
             <form className="auth-form" onSubmit={handleSubmit}>
                 <label>
                     Name
-                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+                    <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Your real or preferred name"
+                    />
+                    <span className="auth-form__hint">
+                        Please use your real or preferred name &mdash; it&rsquo;s what other students will see
+                        when trading with you.
+                    </span>
                 </label>
                 <label>
                     Email
@@ -92,7 +102,7 @@ export default function RegisterPage() {
                         </option>
                         {TEAM_COLORS.map((color) => (
                             <option key={color} value={color}>
-                                {color}
+                                {capitalize(color)}
                             </option>
                         ))}
                     </select>

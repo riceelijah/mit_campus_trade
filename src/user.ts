@@ -13,8 +13,8 @@ export class User {
      *  this student currently holds (i.e. is the latest/current owner of), `seen` is the set
      *  of supercard (dex) numbers this student has scanned via the QR scanner's "Just
      *  looking" option without registering them to their collection, and
-     *  `collectionViewMode` is this student's last-selected Collected/Seen/All visibility
-     *  toggle on the Collection page, remembered across sessions.
+     *  `collectionViewMode` is this student's last-selected Owned/Collected/Seen/All
+     *  visibility toggle on the Collection page, remembered across sessions.
      *
      * RI:
      *  - Number.isInteger(id) && id >= 1
