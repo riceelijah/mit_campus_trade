@@ -2,11 +2,17 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { Supercard } from '../card';
 import { SUPERCARDS, ALL_COLORS, ALL_CATEGORIES } from '../data/supercards';
-import { useCollectedSupercardNumbers, useSeenSupercardNumbers, CardVisibility } from '../data/ownership';
+import {
+    useCollectedSupercardNumbers,
+    useOwnedSupercardNumbers,
+    useSeenSupercardNumbers,
+    CardVisibility,
+} from '../data/ownership';
 import { useAuth } from '../auth/AuthContext';
 import { useSettings } from '../settings/SettingsContext';
 import { CollectionViewMode, FlagColor } from '../types';
 import CardGrid from '../components/CardGrid';
+import { capitalize } from '../lib/format';
 
 type SortKey = 'dex' | 'title' | 'cost' | 'color';
 
@@ -26,9 +32,12 @@ const SORT_LABELS: Record<SortKey, string> = {
 
 // "Collected" is a deliberate relabel of what the original spec called "owned" -- it means
 // every card ever collected (the full custody history), not this app's separate owned/
-// collected split used elsewhere for trading (owned = currently-held-only). Avoids clashing
-// with that terminology.
+// collected split used elsewhere for trading (owned = currently-held-only). "Owned" below
+// maps directly onto that latter, narrower concept (see useOwnedSupercardNumbers), so the two
+// labels sitting side by side here is intentional, not a naming collision. Ordered narrowest
+// to broadest: each mode is a strict superset of the one before it (see CollectionViewMode).
 const VISIBILITY_LABELS: Record<CollectionViewMode, string> = {
+    owned: 'Hand',
     collected: 'Collected',
     seen: 'Seen',
     all: 'All',
@@ -42,29 +51,46 @@ const ALL_COSTS = [...new Set(SUPERCARDS.map((sc) => sc.cost))].sort((a, b) => a
  * useSearchParams below) rather than component state, so a card page's chip links (see
  * CardDetailPage) can deep-link a filtered view of this page just by navigating to
  * `/collection?category=...` etc. -- no separate "apply this filter" plumbing needed between
- * the two pages, and the resulting URL is itself shareable/bookmarkable.
+ * the two pages, and the resulting URL is itself shareable/bookmarkable. Each of the three
+ * keys can repeat (`?category=Music&category=Sports`) via URLSearchParams' own multi-value
+ * support, so several values of the same type filter in as OR'd together (a card matching any
+ * checked category counts), while the three types still AND together -- same semantics a chip
+ * link's single value always had, just generalized.
  */
 export default function CollectionPage() {
     const { user, loading: authLoading } = useAuth();
     const { settings, loading: settingsLoading } = useSettings();
     const collected = useCollectedSupercardNumbers();
+    const owned = useOwnedSupercardNumbers();
     const seen = useSeenSupercardNumbers();
     const [sortKey, setSortKey] = useState<SortKey>('dex');
     const [visibilityFilter, setVisibilityFilter] = useState<CollectionViewMode>('all');
 
     const [searchParams, setSearchParams] = useSearchParams();
-    const categoryFilter = searchParams.get('category');
-    const colorFilter = searchParams.get('color') as FlagColor | null;
-    const costFilter = searchParams.get('cost');
-    const hasTypeFilter = categoryFilter !== null || colorFilter !== null || costFilter !== null;
+    const categoryFilter = useMemo(() => new Set(searchParams.getAll('category')), [searchParams]);
+    const colorFilter = useMemo(() => new Set(searchParams.getAll('color') as FlagColor[]), [searchParams]);
+    const costFilter = useMemo(() => new Set(searchParams.getAll('cost')), [searchParams]);
+    const activeFilterCount = categoryFilter.size + colorFilter.size + costFilter.size;
+    const hasTypeFilter = activeFilterCount > 0;
 
-    const setFilterParam = useCallback(
+    // Starts open if a chip link (or a bookmarked/shared URL) landed here with a filter
+    // already checked, so that selection isn't hidden inside a collapsed panel the viewer has
+    // to know to open -- but only as an initial default. It deliberately does NOT track
+    // hasTypeFilter reactively afterwards, so checking/clearing filters later never yanks the
+    // panel open or shut out from under whatever the viewer last chose for it themselves.
+    const [filtersOpen, setFiltersOpen] = useState(hasTypeFilter);
+
+    const toggleFilterValue = useCallback(
         (key: 'category' | 'color' | 'cost', value: string) => {
             setSearchParams(
                 (prev) => {
+                    const current = prev.getAll(key);
                     const next = new URLSearchParams(prev);
-                    if (value === '') next.delete(key);
-                    else next.set(key, value);
+                    next.delete(key);
+                    (current.includes(value)
+                        ? current.filter((v) => v !== value)
+                        : [...current, value]
+                    ).forEach((v) => next.append(key, v));
                     return next;
                 },
                 { replace: true },
@@ -120,15 +146,17 @@ export default function CollectionPage() {
 
     const visibleCards = useMemo(() => {
         let cards = sortedCards;
-        if (visibilityFilter === 'collected') cards = cards.filter((sc) => collected.has(sc.n));
+        if (visibilityFilter === 'owned') cards = cards.filter((sc) => owned.has(sc.n));
+        else if (visibilityFilter === 'collected') cards = cards.filter((sc) => collected.has(sc.n));
         else if (visibilityFilter === 'seen')
             cards = cards.filter((sc) => collected.has(sc.n) || seen.has(sc.n));
 
-        if (categoryFilter) cards = cards.filter((sc) => sc.categories.includes(categoryFilter));
-        if (colorFilter) cards = cards.filter((sc) => sc.color === colorFilter);
-        if (costFilter) cards = cards.filter((sc) => sc.cost === Number(costFilter));
+        if (categoryFilter.size > 0)
+            cards = cards.filter((sc) => sc.categories.some((c) => categoryFilter.has(c)));
+        if (colorFilter.size > 0) cards = cards.filter((sc) => colorFilter.has(sc.color));
+        if (costFilter.size > 0) cards = cards.filter((sc) => costFilter.has(String(sc.cost)));
         return cards;
-    }, [sortedCards, visibilityFilter, collected, seen, categoryFilter, colorFilter, costFilter]);
+    }, [sortedCards, visibilityFilter, owned, collected, seen, categoryFilter, colorFilter, costFilter]);
 
     const getVisibility = useCallback(
         (supercard: Supercard): CardVisibility => {
@@ -157,6 +185,11 @@ export default function CollectionPage() {
                 appear greyed out. Cards you haven&rsquo;t seen yet just show their card number.
             </p>
 
+            {/* Everything that narrows down which cards show below -- visibility, sort, and the
+                three type filters -- lives in this one panel so it reads as a single "controls"
+                block instead of two disconnected rows (it used to be split across two separate
+                .collection-controls). See .collection-controls in index.css for how this
+                collapses to a single tappable column on mobile. */}
             <div className="collection-controls">
                 <div className="collection-controls__group" role="group" aria-label="Filter by visibility">
                     {(Object.keys(VISIBILITY_LABELS) as CollectionViewMode[]).map((mode) => (
@@ -174,65 +207,112 @@ export default function CollectionPage() {
                     ))}
                 </div>
 
-                <label className="collection-controls__sort">
-                    Sort by
-                    <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
-                        {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
-                            <option key={key} value={key}>
-                                {SORT_LABELS[key]}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-            </div>
+                <div className="collection-controls__filters">
+                    <label className="collection-controls__sort">
+                        Sort by
+                        <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
+                            {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+                                <option key={key} value={key}>
+                                    {SORT_LABELS[key]}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
 
-            <div className="collection-controls">
-                <label className="collection-controls__sort">
-                    Category
-                    <select
-                        value={categoryFilter ?? ''}
-                        onChange={(e) => setFilterParam('category', e.target.value)}
+                    {/* Collapsed by default (see filtersOpen above) -- this, plus folding
+                        category/color/cost into checkboxes instead of three separate always-
+                        visible <select>s, is what keeps this panel from swallowing half the
+                        screen on mobile the way it used to. */}
+                    <button
+                        type="button"
+                        className={
+                            'filters-toggle toggle-button' + (hasTypeFilter ? ' toggle-button--active' : '')
+                        }
+                        aria-expanded={filtersOpen}
+                        aria-controls="collection-filters-panel"
+                        onClick={() => setFiltersOpen((open) => !open)}
                     >
-                        <option value="">All</option>
-                        {ALL_CATEGORIES.map((category) => (
-                            <option key={category} value={category}>
-                                {category}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-
-                <label className="collection-controls__sort">
-                    Color
-                    <select
-                        value={colorFilter ?? ''}
-                        onChange={(e) => setFilterParam('color', e.target.value)}
-                    >
-                        <option value="">All</option>
-                        {ALL_COLORS.map((color) => (
-                            <option key={color} value={color}>
-                                {color}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-
-                <label className="collection-controls__sort">
-                    Cost
-                    <select value={costFilter ?? ''} onChange={(e) => setFilterParam('cost', e.target.value)}>
-                        <option value="">All</option>
-                        {ALL_COSTS.map((cost) => (
-                            <option key={cost} value={cost}>
-                                {cost}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-
-                {hasTypeFilter && (
-                    <button type="button" className="toggle-button" onClick={clearTypeFilters}>
-                        Clear filters
+                        Filters{hasTypeFilter ? ` (${activeFilterCount})` : ''}
+                        <svg
+                            viewBox="0 0 12 12"
+                            className={
+                                'filters-toggle__chevron' +
+                                (filtersOpen ? ' filters-toggle__chevron--open' : '')
+                            }
+                            aria-hidden="true"
+                        >
+                            <path
+                                d="M2.5 4.5L6 8L9.5 4.5"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
                     </button>
+
+                    {hasTypeFilter && (
+                        <button
+                            type="button"
+                            className="toggle-button collection-controls__clear"
+                            onClick={clearTypeFilters}
+                        >
+                            Clear filters
+                        </button>
+                    )}
+                </div>
+
+                {filtersOpen && (
+                    <div id="collection-filters-panel" className="collection-filters-panel">
+                        <fieldset className="collection-filters-panel__group">
+                            <legend>Category</legend>
+                            <div className="collection-filters-panel__options">
+                                {ALL_CATEGORIES.map((category) => (
+                                    <label key={category} className="filter-checkbox">
+                                        <input
+                                            type="checkbox"
+                                            checked={categoryFilter.has(category)}
+                                            onChange={() => toggleFilterValue('category', category)}
+                                        />
+                                        {category}
+                                    </label>
+                                ))}
+                            </div>
+                        </fieldset>
+
+                        <fieldset className="collection-filters-panel__group">
+                            <legend>Color</legend>
+                            <div className="collection-filters-panel__options">
+                                {ALL_COLORS.map((color) => (
+                                    <label key={color} className="filter-checkbox">
+                                        <input
+                                            type="checkbox"
+                                            checked={colorFilter.has(color)}
+                                            onChange={() => toggleFilterValue('color', color)}
+                                        />
+                                        {capitalize(color)}
+                                    </label>
+                                ))}
+                            </div>
+                        </fieldset>
+
+                        <fieldset className="collection-filters-panel__group">
+                            <legend>Cost</legend>
+                            <div className="collection-filters-panel__options">
+                                {ALL_COSTS.map((cost) => (
+                                    <label key={cost} className="filter-checkbox">
+                                        <input
+                                            type="checkbox"
+                                            checked={costFilter.has(String(cost))}
+                                            onChange={() => toggleFilterValue('cost', String(cost))}
+                                        />
+                                        {cost}
+                                    </label>
+                                ))}
+                            </div>
+                        </fieldset>
+                    </div>
                 )}
             </div>
 

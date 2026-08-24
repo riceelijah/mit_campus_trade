@@ -11,6 +11,7 @@ import {
     VerifiedTradeJson,
 } from '../types';
 import { extractError } from '../lib/api';
+import { capitalize } from '../lib/format';
 
 interface TypeFilter {
     color?: FlagColor;
@@ -429,7 +430,7 @@ export default function AdminPage() {
                                         <td>{u.username}</td>
                                         <td>{u.name}</td>
                                         <td>{u.email}</td>
-                                        <td>{u.team}</td>
+                                        <td>{capitalize(u.team)}</td>
                                         <td>{u.isAdmin ? 'yes' : ''}</td>
                                     </tr>
                                 ))}
@@ -455,7 +456,7 @@ export default function AdminPage() {
                                     <optgroup label="Team color">
                                         {ALL_COLORS.map((color) => (
                                             <option key={color} value={`color:${color}`}>
-                                                {color}
+                                                {capitalize(color)}
                                             </option>
                                         ))}
                                     </optgroup>
@@ -543,7 +544,7 @@ export default function AdminPage() {
                                         <span
                                             className="admin-card-row__swatch"
                                             style={{ backgroundColor: sc.color }}
-                                            title={sc.color}
+                                            title={capitalize(sc.color)}
                                         />
                                         <div className="admin-card-row__body">
                                             <div className="admin-card-row__title">

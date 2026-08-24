@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { getSupercardByHighlightId } from '../data/supercards';
 import { useCollectedCardFor } from '../data/ownership';
+import { capitalize } from '../lib/format';
 import FlippableCard from '../components/FlippableCard';
 import CustodyChain from '../components/CustodyChain';
 import Toast from '../components/Toast';
@@ -71,9 +72,9 @@ export default function CardDetailPage() {
                     <Link
                         className="chip chip--clickable"
                         to={`/collection?color=${encodeURIComponent(supercard.color)}`}
-                        title={`See every ${supercard.color} card`}
+                        title={`See every ${capitalize(supercard.color)} card`}
                     >
-                        {supercard.color}
+                        {capitalize(supercard.color)}
                     </Link>
                     <Link
                         className="chip chip--clickable"

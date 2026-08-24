@@ -496,18 +496,30 @@ a {
     }
 }
 
+/* One grouped panel for every "which cards show below" control (visibility, sort, and the
+   type filters) -- previously two separate, visually disconnected rows. The background/radius
+   read as a single control surface rather than controls floating loose on the page. */
 .collection-controls {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    flex-direction: column;
+    gap: 14px;
     margin: 16px 0;
+    padding: 14px 16px;
+    background: #f2f2f2;
+    border-radius: 14px;
 }
 
 .collection-controls__group {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
+}
+
+.collection-controls__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
 }
 
 .toggle-button {
@@ -529,7 +541,188 @@ a {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #444;
+}
+
+/* Custom-styled to match the pill look of .toggle-button next to it, rather than the
+   browser's default select chrome -- appearance: none strips that default so the border
+   radius/padding/arrow below actually take effect (supported in all current evergreen
+   browsers). The arrow is an inline SVG chevron rather than an image file since it's a single
+   trivial shape and this avoids a separate asset + request for it. */
+.collection-controls__sort select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background: #fff
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5L6 8L9.5 4.5' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+        no-repeat right 12px center;
+    background-size: 11px;
+    border: 1px solid #ccc;
+    border-radius: 999px;
+    padding: 6px 30px 6px 14px;
+    font: inherit;
+    font-size: 0.85rem;
+    color: #111;
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.collection-controls__sort select:hover {
+    border-color: #999;
+}
+
+.collection-controls__sort select:focus {
+    outline: none;
+    border-color: #111;
+    box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.12);
+}
+
+.filters-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filters-toggle__chevron {
+    width: 10px;
+    height: 10px;
+    transition: transform 0.15s ease;
+}
+
+.filters-toggle__chevron--open {
+    transform: rotate(180deg);
+}
+
+/* The collapsible category/color/cost panel (see filtersOpen in CollectionPage) -- closed by
+   default so it doesn't cost any space until asked for, which is the whole point on mobile.
+   A top border/padding rather than a background separates it from the always-visible row
+   above without turning it into a whole second nested panel. */
+.collection-filters-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px 28px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #ddd;
+}
+
+.collection-filters-panel__group {
+    /* Resets the browser's default fieldset chrome (border/padding) -- these are grouped for
+       accessibility/semantics (a <legend> naming each checkbox group for screen readers), not
+       for the default visual box. */
+    border: none;
+    margin: 0;
+    padding: 0;
+    min-width: 160px;
+    flex: 1 1 auto;
+}
+
+.collection-filters-panel__group legend {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #444;
+    padding: 0 0 8px;
+}
+
+.collection-filters-panel__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* Checkbox options styled as tappable pills (matching .toggle-button) rather than bare native
+   checkboxes -- much easier to hit on mobile, and the checked/unchecked state reads clearly at
+   a glance across a couple dozen options. The native checkbox itself is visually hidden but
+   stays in the DOM (not display:none) so it's still keyboard-focusable/screen-reader-visible;
+   :has() (baseline across current evergreen browsers) is what lets the label's own appearance
+   react to its checkbox's checked/focus state without any JS beyond the existing onChange. */
+.filter-checkbox {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: #eee;
+    border: 1px solid #ccc;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.filter-checkbox input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.filter-checkbox:has(input:checked) {
+    background: #111;
+    color: #fff;
+    border-color: #111;
+}
+
+.filter-checkbox:has(input:focus-visible) {
+    outline: 2px solid #111;
+    outline-offset: 2px;
+}
+
+/* This site is mobile-first, so the filter panel gets deliberate attention at phone widths
+   rather than just being left to wrap: each row becomes a full-width, stacked "label - control"
+   pair (easier to scan and to hit than the desktop's inline pills), and every control grows a
+   taller tap target than its desktop 6px padding gives it -- 44px is the usual touch-target
+   floor. Matches .card-detail's existing 600px breakpoint. */
+@media (max-width: 600px) {
+    .collection-controls__filters {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .collection-controls__group .toggle-button {
+        padding: 10px 16px;
+    }
+
+    .collection-controls__sort {
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .collection-controls__sort select {
+        flex: 1;
+        min-width: 0;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+
+    .collection-controls__clear {
+        align-self: stretch;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+
+    .filters-toggle {
+        justify-content: center;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+
+    /* Each checkbox group gets its own full-width column instead of sharing a row -- at
+       phone widths there isn't room for Category/Color/Cost side by side without every pill
+       wrapping mid-group, which reads worse than just stacking the groups outright. */
+    .collection-filters-panel {
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .filter-checkbox {
+        padding: 8px 14px;
+    }
 }
 
 /* --- card detail page --- */
@@ -696,6 +889,15 @@ a {
     font-size: 1rem;
     border: 1px solid #ccc;
     border-radius: 6px;
+}
+
+/* Sits inside the Name <label> itself (see RegisterPage), not as a sibling field -- so it
+   reads as a caption on that one input rather than another row in the form, and inherits the
+   label's own 4px gap instead of the form's full 14px inter-field gap. */
+.auth-form__hint {
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: #777;
 }
 
 .auth-form button {

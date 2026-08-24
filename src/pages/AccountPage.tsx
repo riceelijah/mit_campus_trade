@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { isValidPassword } from '../validation';
+import { capitalize } from '../lib/format';
 
 export default function AccountPage() {
     const { user, loading, changePassword } = useAuth();
@@ -52,7 +53,7 @@ export default function AccountPage() {
         <div className="auth-page">
             <h1>Account</h1>
             <p>
-                Logged in as <strong>{user.username}</strong> ({user.email}), team {user.team}
+                Logged in as <strong>{user.username}</strong> ({user.email}), team {capitalize(user.team)}
                 {user.isAdmin && ' — admin'}
             </p>
 
