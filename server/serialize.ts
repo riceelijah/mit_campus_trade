@@ -50,6 +50,7 @@ function sanitizeCustodyEvent(ev: CustodyEventWithUser): PublicCustodyEvent {
 export interface PublicCardInstance {
     cardInstanceId: number;
     supercardN: number;
+    uniqueId: string;
     custody: PublicCustodyEvent[];
 }
 
@@ -57,6 +58,10 @@ export function serializeCardInstance(instance: CardInstanceRow): PublicCardInst
     return {
         cardInstanceId: instance.id,
         supercardN: instance.supercard_n,
+        // Non-null by construction: every card_instances row comes from
+        // scripts/import-card-copies.ts, which always sets unique_id. The column itself is
+        // nullable only to allow the pre-import ALTER TABLE migration step (see db.ts).
+        uniqueId: instance.unique_id!,
         custody: custodyForCardInstance(instance.id).map(sanitizeCustodyEvent),
     };
 }

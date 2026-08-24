@@ -1,9 +1,15 @@
-import { FlagColor, FrameType, VALID_COLORS, assert } from './types';
+import { FlagColor, VALID_COLORS, assert } from './types';
 import { User } from './user';
 
 /**
  * The full set of content fields that define a Supercard, as sourced from one row of the
  * "Campus Trade Master Content Sheet - Ordered Card Master" spreadsheet.
+ *
+ * Deliberately narrower than the sheet itself: columns the app never reads (frame/art asset
+ * filenames, working file locations, the interview link/website link/QR code file -- art is
+ * located by convention off `n`, not by filename; see CardArt/FlippableCard) aren't parsed
+ * into this type at all, so there's no dead data riding along in every Card/Supercard, in
+ * supercards.json, or over the API.
  */
 export interface SupercardData {
     /** collection/dex number of the card (spreadsheet column: ID) */
@@ -16,28 +22,12 @@ export interface SupercardData {
     categories: string[];
     /** team flag color the card is printed in (Color) */
     color: FlagColor;
-    /** shape of the card's frame (Type) */
-    frameType: FrameType;
-    /** front frame image filename (@FrontFrame) */
-    frontFrame: string;
-    /** back frame image filename (@BackFrame) */
-    backFrame: string;
-    /** art asset filename (@Art_File) */
-    artFile: string;
     /** credit for the card art, if known (Graphic Attribution Final) */
     artist?: string;
-    /** working file location for the art asset, if known (Graphic File Location) */
-    graphicFileLocation?: string;
     /** printed interview excerpt shown on the back of the card (Excerpt (printed)) */
     description: string;
-    /** link to the source interview highlight (Link to highlight) */
-    link: string;
     /** id of the source interview highlight (Highlight ID) */
     highlightId: string;
-    /** this card's page on the Campus Trade website (Website link) */
-    websiteLink: string;
-    /** QR code image filename encoding the website link (@QR_Code) */
-    qrCodeFile: string;
     /** exchange ritual prompt/question (Exchange question) */
     question: string;
     /** exchange cost tier, 1-3 (Exchange level) */
@@ -56,15 +46,8 @@ const REQUIRED_COLUMNS = [
     'Short_Quote',
     'Categories',
     'Color',
-    ' Type',
-    '@FrontFrame',
-    '@BackFrame',
-    '@Art_File',
     'Excerpt (printed)',
-    'Link to highlight',
     'Highlight ID',
-    'Website link',
-    '@QR_Code',
     'Exchange question',
     'Exchange level',
     'Speaker name',
@@ -114,17 +97,9 @@ export function parseSupercardRow(row: Record<string, string>): SupercardData {
             .map((c) => c.trim())
             .filter((c) => c.length > 0),
         color: row['Color'].trim() as FlagColor,
-        frameType: row[' Type'].trim() as FrameType,
-        frontFrame: row['@FrontFrame'].trim(),
-        backFrame: row['@BackFrame'].trim(),
-        artFile: row['@Art_File'].trim(),
         artist: optional(row['Graphic Attribution Final']),
-        graphicFileLocation: optional(row['Graphic File Location']),
         description: row['Excerpt (printed)'].trim(),
-        link: row['Link to highlight'].trim(),
         highlightId: row['Highlight ID'].trim(),
-        websiteLink: row['Website link'].trim(),
-        qrCodeFile: row['@QR_Code'].trim(),
         question: row['Exchange question'].trim(),
         cost: parseInt(row['Exchange level'], 10),
         descriptionAttribution: row['Speaker name'].trim(),
@@ -135,27 +110,22 @@ export function parseSupercardRow(row: Record<string, string>): SupercardData {
 
 export class Supercard {
     /**
-     * AF(n, title, shortQuote, categories, color, frameType, frontFrame, backFrame, artFile,
-     *    artist, graphicFileLocation, description, link, highlightId, websiteLink, qrCodeFile,
-     *    question, cost, descriptionAttribution, speakerDetails, highlightDate):
+     * AF(n, title, shortQuote, categories, color, artist, description, highlightId, question,
+     *    cost, descriptionAttribution, speakerDetails, highlightDate):
      *  the template/definition (as opposed to a specific physical instance) of the MIT Campus
      *  Trade card numbered `n`, titled `title`, with cover quote `shortQuote`, filed under
-     *  `categories`, printed in team color `color` on a `frameType`-shaped frame (front
-     *  `frontFrame` / back `backFrame`, using art asset `artFile` credited to `artist`,
-     *  sourced from `graphicFileLocation`), showing interview excerpt `description` (said by
-     *  `descriptionAttribution`, whose role is `speakerDetails`, on `highlightDate`, sourced
-     *  from `link`/`highlightId`, also viewable at `websiteLink`/`qrCodeFile`), and traded via
-     *  the ritual prompted by `question` at exchange cost `cost`.
+     *  `categories`, printed in team color `color`, whose art is credited to `artist`, showing
+     *  interview excerpt `description` (said by `descriptionAttribution`, whose role is
+     *  `speakerDetails`, on `highlightDate`, sourced from `highlightId`), and traded via the
+     *  ritual prompted by `question` at exchange cost `cost`.
      *
      * RI:
      *  - Number.isInteger(n) && n >= 1
      *  - title.length > 0 && shortQuote.length > 0
      *  - categories.length >= 1 && every element of categories has length > 0
-     *  - color is one of the 12 FlagColor values; frameType is 'bubble' or 'rect'
-     *  - frontFrame.length > 0 && backFrame.length > 0 && artFile.length > 0
-     *  - artist and graphicFileLocation, if present, have length > 0
-     *  - description.length > 0 && link.length > 0 && highlightId.length > 0
-     *  - websiteLink.length > 0 && qrCodeFile.length > 0 && question.length > 0
+     *  - color is one of the 12 FlagColor values
+     *  - artist, if present, has length > 0
+     *  - description.length > 0 && highlightId.length > 0 && question.length > 0
      *  - Number.isInteger(cost) && 1 <= cost <= 3
      *  - descriptionAttribution.length > 0 && speakerDetails.length > 0 && highlightDate.length > 0
      *
@@ -173,17 +143,9 @@ export class Supercard {
     public readonly shortQuote: string;
     private readonly _categories: string[];
     public readonly color: FlagColor;
-    public readonly frameType: FrameType;
-    public readonly frontFrame: string;
-    public readonly backFrame: string;
-    public readonly artFile: string;
     public readonly artist?: string;
-    public readonly graphicFileLocation?: string;
     public readonly description: string;
-    public readonly link: string;
     public readonly highlightId: string;
-    public readonly websiteLink: string;
-    public readonly qrCodeFile: string;
     public readonly question: string;
     public readonly cost: number;
     public readonly descriptionAttribution: string;
@@ -201,17 +163,9 @@ export class Supercard {
         this.shortQuote = data.shortQuote;
         this._categories = [...data.categories];
         this.color = data.color;
-        this.frameType = data.frameType;
-        this.frontFrame = data.frontFrame;
-        this.backFrame = data.backFrame;
-        this.artFile = data.artFile;
         this.artist = data.artist;
-        this.graphicFileLocation = data.graphicFileLocation;
         this.description = data.description;
-        this.link = data.link;
         this.highlightId = data.highlightId;
-        this.websiteLink = data.websiteLink;
-        this.qrCodeFile = data.qrCodeFile;
         this.question = data.question;
         this.cost = data.cost;
         this.descriptionAttribution = data.descriptionAttribution;
@@ -253,23 +207,9 @@ export class Supercard {
             'no category may be empty',
         );
         assert(VALID_COLORS.has(this.color), 'color must be one of the 12 FlagColor values');
-        assert(
-            this.frameType === 'bubble' || this.frameType === 'rect',
-            "frameType must be 'bubble' or 'rect'",
-        );
-        assert(this.frontFrame.length > 0, 'frontFrame must be non-empty');
-        assert(this.backFrame.length > 0, 'backFrame must be non-empty');
-        assert(this.artFile.length > 0, 'artFile must be non-empty');
         assert(this.artist === undefined || this.artist.length > 0, 'artist, if present, must be non-empty');
-        assert(
-            this.graphicFileLocation === undefined || this.graphicFileLocation.length > 0,
-            'graphicFileLocation, if present, must be non-empty',
-        );
         assert(this.description.length > 0, 'description must be non-empty');
-        assert(this.link.length > 0, 'link must be non-empty');
         assert(this.highlightId.length > 0, 'highlightId must be non-empty');
-        assert(this.websiteLink.length > 0, 'websiteLink must be non-empty');
-        assert(this.qrCodeFile.length > 0, 'qrCodeFile must be non-empty');
         assert(this.question.length > 0, 'question must be non-empty');
         assert(
             Number.isInteger(this.cost) && this.cost >= 1 && this.cost <= 3,
@@ -292,22 +232,25 @@ export interface CustodyRecord {
 
 export class Card extends Supercard {
     /**
-     * AF(n, ..., id, custody): a specific physical/digital instance, numbered `id`, of the
-     *  Supercard template described by the inherited fields (n, title, ... highlightDate --
-     *  see Supercard's AF), which has changed hands over time as recorded by `custody`: a
-     *  chronological list of {owner, acquiredAt} pairs, one per student who has held this
-     *  card, in the order they held it (the current owner is the last entry, or nobody yet
-     *  if custody is empty).
+     * AF(n, ..., id, uniqueId, custody): a specific physical/digital instance, numbered `id`
+     *  internally and identified to students by the 4-character `uniqueId` printed in its own
+     *  QR code (distinct from every other copy ever printed, including other copies of the
+     *  same Supercard `n`), of the Supercard template described by the inherited fields (n,
+     *  title, ... highlightDate -- see Supercard's AF), which has changed hands over time as
+     *  recorded by `custody`: a chronological list of {owner, acquiredAt} pairs, one per
+     *  student who has held this card, in the order they held it (the current owner is the
+     *  last entry, or nobody yet if custody is empty).
      *
      * RI:
      *  - Supercard's RI holds for the inherited fields
      *  - Number.isInteger(id) && id >= 1
+     *  - uniqueId.length > 0
      *  - for all i, 1 <= i < custody.length: !custody[i].owner.equals(custody[i - 1].owner)
      *    (no student can trade a card to themselves / re-receive it from themselves
      *    consecutively)
      *
      * SFRE:
-     *  - `id` is `readonly` and a primitive, safe to expose directly.
+     *  - `id` and `uniqueId` are `readonly` primitives, safe to expose directly.
      *  - `custody` is mutable (it's an array of records each containing a mutable `Date`),
      *    so it's stored in a private `_custody` and only exposed through:
      *      - the `custody` getter, which returns a new array of new {owner, acquiredAt}
@@ -325,15 +268,18 @@ export class Card extends Supercard {
 
     /**
      * Creates a Card: one instance of a Supercard, distinguished from other instances of the
-     * same collection number by `id`.
+     * same collection number by `id`/`uniqueId`.
      *
      * @param data the Supercard content fields this card is an instance of
      * @param id individual instance id of this card, unique among cards
+     * @param uniqueId the 4-character id printed in this specific copy's QR code, unique
+     *        among every copy ever printed
      * @param initialOwner the first student to own this card, if any
      */
     public constructor(
         data: SupercardData,
         public readonly id: number,
+        public readonly uniqueId: string,
         initialOwner?: User,
     ) {
         super(data);
@@ -388,6 +334,7 @@ export class Card extends Supercard {
     protected checkRep(): void {
         super.checkRep();
         assert(Number.isInteger(this.id) && this.id >= 1, 'id must be a positive integer');
+        assert(this.uniqueId.length > 0, 'uniqueId must be non-empty');
         for (let i = 1; i < this._custody.length; i++) {
             assert(
                 !this._custody[i].owner.equals(this._custody[i - 1].owner),
@@ -407,9 +354,15 @@ export class Card extends Supercard {
  *
  * @param row one row of the master content sheet
  * @param id individual instance id of this card, unique among cards
+ * @param uniqueId the 4-character id printed in this specific copy's QR code
  * @param initialOwner the first student to own this card, if any
  * @returns the Card described by `row`, numbered `id`
  */
-export function cardFromRow(row: Record<string, string>, id: number, initialOwner?: User): Card {
-    return new Card(parseSupercardRow(row), id, initialOwner);
+export function cardFromRow(
+    row: Record<string, string>,
+    id: number,
+    uniqueId: string,
+    initialOwner?: User,
+): Card {
+    return new Card(parseSupercardRow(row), id, uniqueId, initialOwner);
 }

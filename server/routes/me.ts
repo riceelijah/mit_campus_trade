@@ -3,10 +3,12 @@ import rateLimit from 'express-rate-limit';
 import { requireAuth } from '../auth/session';
 import {
     cardInstancesCollectedBy,
-    grantCardInstance,
+    collectCardInstance,
     markSupercardSeen,
     seenSupercardNumbersFor,
     updateCollectionViewMode,
+    CardInstanceNotFoundError,
+    AlreadyOwnedError,
     UserRow,
 } from '../db';
 import { serializeCardInstance } from '../serialize';
@@ -37,27 +39,42 @@ const scanLimiter = rateLimit({
     message: { error: 'Too many scans. Please wait a few minutes and try again.' },
 });
 
-// Self-service version of admin's grant-card action: lets a logged-in student register a
-// card they scanned into their own collection. No server-side duplicate check -- a student
-// scanning a card they already have is expected (physical duplicates are a normal part of
-// trading), and the "you already have this, add another copy?" confirmation is handled
-// client-side by the scanner before this is ever called.
+// Lets a logged-in student register a *specific* scanned/visited card copy (identified by its
+// unique_id, not the supercard/design id) into their own collection. Physical duplicates of
+// the same design are still normal -- what's no longer allowed is collecting the very same
+// copy you already currently hold (collectCardInstance throws AlreadyOwnedError for that).
+// `claimedFromUserId` is the answer to the "who'd you get this from?" popup (see
+// TradeAttributionModal), null if there was no previous owner to ask about or the collector
+// picked "Unknown/Other".
 meRouter.post('/collect', scanLimiter, (req, res) => {
     const user = res.locals.user as UserRow;
-    const { highlightId } = req.body ?? {};
+    const { uniqueId, claimedFromUserId } = req.body ?? {};
 
-    if (typeof highlightId !== 'string' || highlightId.length === 0) {
+    if (typeof uniqueId !== 'string' || uniqueId.length === 0) {
         res.status(400).json({ error: 'Not a valid card' });
         return;
     }
-    const supercard = getSupercardByHighlightId(highlightId);
-    if (!supercard) {
-        res.status(400).json({ error: 'Not a valid card' });
+    if (
+        claimedFromUserId !== undefined &&
+        claimedFromUserId !== null &&
+        typeof claimedFromUserId !== 'number'
+    ) {
+        res.status(400).json({ error: 'Not a valid claimed-from user' });
         return;
     }
 
-    const instance = grantCardInstance(supercard.n, user.id);
-    res.status(201).json({ card: serializeCardInstance(instance) });
+    try {
+        const { instance } = collectCardInstance(uniqueId, user.id, claimedFromUserId ?? null);
+        res.status(201).json({ card: serializeCardInstance(instance) });
+    } catch (err) {
+        if (err instanceof CardInstanceNotFoundError) {
+            res.status(404).json({ error: 'Not a valid card' });
+        } else if (err instanceof AlreadyOwnedError) {
+            res.status(409).json({ error: 'You already own this card' });
+        } else {
+            throw err;
+        }
+    }
 });
 
 // The QR scanner's "Just looking" option: records that the viewer has scanned a card without

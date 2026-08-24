@@ -31,11 +31,6 @@ export const VALID_COLORS: ReadonlySet<FlagColor> = new Set([
 ]);
 
 /**
- * The shape of a card's frame.
- */
-export type FrameType = 'bubble' | 'rect';
-
-/**
  * The Collection page's visibility toggle -- 'collected' shows only cards ever collected,
  * 'seen' additionally includes scanned-but-not-registered cards, 'all' shows the full dex.
  * Persisted per account (see User.collectionViewMode) so it survives across sessions/devices.
@@ -82,6 +77,9 @@ export interface PublicCustodyEventJson {
 export interface PublicCardInstanceJson {
     cardInstanceId: number;
     supercardN: number;
+    /** The 4-character id printed in this specific copy's QR code / URL, unique among every
+     *  copy ever printed -- as opposed to supercardN, which identifies the card *design*. */
+    uniqueId: string;
     custody: PublicCustodyEventJson[];
 }
 
@@ -99,4 +97,31 @@ export interface AdminUserCardsJson {
      *  needs to distinguish currently-owned from historical within the same list). */
     cards: PublicCardInstanceJson[];
     seen: number[];
+}
+
+/** The shape returned by GET /api/cards/:uniqueId/collect-candidates -- powers the "who'd you
+ *  get this from?" popup shown when a scanned/visited card instance already has an owner. */
+export interface CollectCandidatesJson {
+    /** False when there's no one to ask about (never collected, or the viewer is themselves
+     *  the current owner) -- the client should skip straight to collecting, no popup. */
+    hasPreviousOwner: boolean;
+    /** The previous owner mixed in with up to 3 random other users, already shuffled
+     *  server-side, with nothing here indicating which entry is the real previous owner --
+     *  that's checked entirely server-side by POST /api/me/collect, specifically so the
+     *  correct answer can't be read off this response (e.g. via devtools) to cheat the quiz.
+     *  Empty when hasPreviousOwner is false. */
+    candidates: PublicUserJson[];
+}
+
+/** One row of GET /api/admin/verified-trades -- a two-way trade the system detected by
+ *  matching up correctly-attributed custody events on both sides (see server/db.ts's
+ *  tryFormVerifiedTrade). */
+export interface VerifiedTradeJson {
+    id: number;
+    userX: { id: number; username: string; name: string };
+    cardA: { cardInstanceId: number; uniqueId: string; supercardN: number };
+    datetimeX: string;
+    userY: { id: number; username: string; name: string };
+    cardB: { cardInstanceId: number; uniqueId: string; supercardN: number };
+    datetimeY: string;
 }

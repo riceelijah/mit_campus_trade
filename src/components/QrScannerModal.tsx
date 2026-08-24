@@ -4,23 +4,24 @@ import jsQR from 'jsqr';
 import { Supercard } from '../card';
 import { useAuth } from '../auth/AuthContext';
 import { getSupercardByHighlightId } from '../data/supercards';
-import { extractHighlightId } from '../lib/qr';
+import { parseCardUrl } from '../lib/qr';
 import { extractError } from '../lib/api';
 import CardArt from './CardArt';
+import CollectFlow from './CollectFlow';
 
 type ScannerState =
     | { status: 'requesting-camera' }
     | { status: 'scanning' }
     | { status: 'camera-error'; message: string }
     | { status: 'not-found' }
+    // A general card link/QR with no unique_id -- can't identify a specific physical copy, so
+    // the only options are to view it or mark it seen; there's no "Register to my account".
     | { status: 'not-logged-in'; supercard: Supercard }
-    | { status: 'choose-action'; supercard: Supercard }
-    | { status: 'duplicate-confirm'; supercard: Supercard }
-    | { status: 'registering'; supercard: Supercard }
+    | { status: 'view-only'; supercard: Supercard }
     | { status: 'marking-seen'; supercard: Supercard }
-    | { status: 'collect-error'; supercard: Supercard; message: string }
     | { status: 'seen-error'; supercard: Supercard; message: string }
-    | { status: 'success'; supercard: Supercard };
+    // A specific copy's QR/link -- CollectFlow drives the rest (attribution popup and all).
+    | { status: 'collect-flow'; supercard: Supercard; uniqueId: string };
 
 const DECODE_INTERVAL_MS = 250;
 
@@ -29,16 +30,14 @@ interface QrScannerModalProps {
 }
 
 /**
- * A camera-driven QR scanner, opened from the nav bar. Decodes a card's printed QR code
- * (a URL of the form mitcampustrade.com/cards/{highlightId}) and offers the logged-in viewer
- * a choice: register it to their collection, or "Just looking" -- mark it seen without
- * claiming it (shows greyed out in their collection afterward). Warns (but doesn't block) on
- * a card already collected, since physical duplicates are a normal part of trading. If
- * signed out, "Just looking" is an ephemeral, unsaved peek (there's no account to attach it
- * to), alongside links to log in/register in order to actually claim it. Either way, "Just
- * looking" closes the scanner and takes the viewer straight to the card's own page, handing
- * off a confirmation message for it to show as a pop-up (see Toast/CardDetailPage) rather
- * than showing that message here in the modal.
+ * A camera-driven QR scanner, opened from the nav bar. Decodes a card's printed QR code -- a
+ * URL of the form mitcampustrade.com/cards/{highlightId} (a card *design*, no specific copy
+ * identifiable -- view/seen only) or mitcampustrade.com/cards/{highlightId}/{uniqueId} (one
+ * specific physical copy -- can be collected, see CollectFlow). If signed out, "Just looking"
+ * is an ephemeral, unsaved peek (there's no account to attach it to), alongside links to log
+ * in/register. Either way, "Just looking" closes the scanner and takes the viewer straight to
+ * the card's own page, handing off a confirmation message for it to show as a pop-up (see
+ * Toast/CardDetailPage) rather than showing that message here in the modal.
  */
 export default function QrScannerModal({ onClose }: QrScannerModalProps) {
     const { user, refreshUser } = useAuth();
@@ -62,30 +61,6 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
 
     // Always release the camera on unmount, no matter what state we were in.
     useEffect(() => stopCamera, [stopCamera]);
-
-    const collect = useCallback(
-        async (supercard: Supercard) => {
-            setState({ status: 'registering', supercard });
-            try {
-                const res = await fetch('/api/me/collect', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ highlightId: supercard.highlightId }),
-                });
-                if (!res.ok) throw new Error(await extractError(res));
-                await refreshUser();
-                setState({ status: 'success', supercard });
-            } catch (err) {
-                setState({
-                    status: 'collect-error',
-                    supercard,
-                    message: err instanceof Error ? err.message : 'Something went wrong',
-                });
-            }
-        },
-        [refreshUser],
-    );
 
     const goToCardWithToast = useCallback(
         (supercard: Supercard, toast: string) => {
@@ -125,22 +100,21 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
     const handleDecoded = useCallback(
         (raw: string) => {
             stopCamera();
-            const highlightId = extractHighlightId(raw);
-            const supercard = highlightId ? getSupercardByHighlightId(highlightId) : undefined;
-            if (!supercard) {
+            const parsed = parseCardUrl(raw);
+            const supercard = parsed ? getSupercardByHighlightId(parsed.highlightId) : undefined;
+            if (!parsed || !supercard) {
                 setState({ status: 'not-found' });
+                return;
+            }
+            if (parsed.uniqueId) {
+                setState({ status: 'collect-flow', supercard, uniqueId: parsed.uniqueId });
                 return;
             }
             if (!user) {
                 setState({ status: 'not-logged-in', supercard });
                 return;
             }
-            const alreadyHave = user.collected.some((card) => card.n === supercard.n);
-            if (alreadyHave) {
-                setState({ status: 'duplicate-confirm', supercard });
-            } else {
-                setState({ status: 'choose-action', supercard });
-            }
+            setState({ status: 'view-only', supercard });
         },
         [stopCamera, user],
     );
@@ -287,61 +261,19 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
                     </div>
                 )}
 
-                {state.status === 'choose-action' && (
+                {state.status === 'view-only' && (
                     <div className="qr-modal__message">
                         <div className="qr-modal__art">
                             <CardArt supercard={state.supercard} />
                         </div>
                         <p>You scanned &ldquo;{state.supercard.title}&rdquo;.</p>
-                        <button type="button" onClick={() => collect(state.supercard)}>
-                            Register to my account
-                        </button>
+                        <p className="not-owned-note">
+                            This code doesn&rsquo;t identify a specific physical copy, so it can&rsquo;t be
+                            added to your collection &mdash; scan the QR code printed on your own copy of the
+                            card to register it.
+                        </p>
                         <button type="button" onClick={() => markSeen(state.supercard)}>
                             Just looking
-                        </button>
-                    </div>
-                )}
-
-                {state.status === 'duplicate-confirm' && (
-                    <div className="qr-modal__message">
-                        <p>
-                            You already have &ldquo;{state.supercard.title}&rdquo; &mdash; add another copy?
-                        </p>
-                        <button type="button" onClick={() => collect(state.supercard)}>
-                            Add another copy
-                        </button>
-                        <button type="button" onClick={scanAgain}>
-                            Cancel
-                        </button>
-                    </div>
-                )}
-
-                {state.status === 'registering' && (
-                    <p className="qr-modal__message">Adding to your collection&hellip;</p>
-                )}
-
-                {state.status === 'collect-error' && (
-                    <div className="qr-modal__message">
-                        <p>{state.message}</p>
-                        <button type="button" onClick={() => collect(state.supercard)}>
-                            Try again
-                        </button>
-                    </div>
-                )}
-
-                {state.status === 'success' && (
-                    <div className="qr-modal__message">
-                        <div className="qr-modal__art">
-                            <CardArt supercard={state.supercard} />
-                        </div>
-                        <p>Added &ldquo;{state.supercard.title}&rdquo; to your collection.</p>
-                        <p>
-                            <Link to={`/cards/${state.supercard.highlightId}`} onClick={onClose}>
-                                View card
-                            </Link>
-                        </p>
-                        <button type="button" onClick={scanAgain}>
-                            Scan another
                         </button>
                     </div>
                 )}
@@ -357,6 +289,10 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
                             Try again
                         </button>
                     </div>
+                )}
+
+                {state.status === 'collect-flow' && (
+                    <CollectFlow supercard={state.supercard} uniqueId={state.uniqueId} onDone={onClose} />
                 )}
             </div>
         </div>

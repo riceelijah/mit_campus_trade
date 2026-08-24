@@ -59,12 +59,29 @@ export default function CardDetailPage() {
 
                 <div className="chip-row">
                     {supercard.categories.map((category) => (
-                        <span className="chip" key={category}>
+                        <Link
+                            className="chip chip--clickable"
+                            to={`/collection?category=${encodeURIComponent(category)}`}
+                            key={category}
+                            title={`See every ${category} card`}
+                        >
                             {category}
-                        </span>
+                        </Link>
                     ))}
-                    <span className="chip">{supercard.color}</span>
-                    <span className="chip">Cost {supercard.cost}</span>
+                    <Link
+                        className="chip chip--clickable"
+                        to={`/collection?color=${encodeURIComponent(supercard.color)}`}
+                        title={`See every ${supercard.color} card`}
+                    >
+                        {supercard.color}
+                    </Link>
+                    <Link
+                        className="chip chip--clickable"
+                        to={`/collection?cost=${supercard.cost}`}
+                        title={`See every cost ${supercard.cost} card`}
+                    >
+                        Cost {supercard.cost}
+                    </Link>
                 </div>
 
                 <div className="card-detail__section">
