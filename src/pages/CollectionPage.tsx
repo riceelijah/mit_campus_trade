@@ -1,11 +1,11 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { Supercard } from '../card';
-import { SUPERCARDS } from '../data/supercards';
+import { SUPERCARDS, ALL_COLORS, ALL_CATEGORIES } from '../data/supercards';
 import { useCollectedSupercardNumbers, useSeenSupercardNumbers, CardVisibility } from '../data/ownership';
 import { useAuth } from '../auth/AuthContext';
 import { useSettings } from '../settings/SettingsContext';
-import { CollectionViewMode } from '../types';
+import { CollectionViewMode, FlagColor } from '../types';
 import CardGrid from '../components/CardGrid';
 
 type SortKey = 'dex' | 'title' | 'cost' | 'color';
@@ -34,6 +34,16 @@ const VISIBILITY_LABELS: Record<CollectionViewMode, string> = {
     all: 'All',
 };
 
+// Derived rather than hardcoded [1, 2, 3], same rationale as ALL_COLORS/ALL_CATEGORIES.
+const ALL_COSTS = [...new Set(SUPERCARDS.map((sc) => sc.cost))].sort((a, b) => a - b);
+
+/**
+ * Reads the category/color/cost filters straight out of the URL's query string (via
+ * useSearchParams below) rather than component state, so a card page's chip links (see
+ * CardDetailPage) can deep-link a filtered view of this page just by navigating to
+ * `/collection?category=...` etc. -- no separate "apply this filter" plumbing needed between
+ * the two pages, and the resulting URL is itself shareable/bookmarkable.
+ */
 export default function CollectionPage() {
     const { user, loading: authLoading } = useAuth();
     const { settings, loading: settingsLoading } = useSettings();
@@ -41,6 +51,40 @@ export default function CollectionPage() {
     const seen = useSeenSupercardNumbers();
     const [sortKey, setSortKey] = useState<SortKey>('dex');
     const [visibilityFilter, setVisibilityFilter] = useState<CollectionViewMode>('all');
+
+    const [searchParams, setSearchParams] = useSearchParams();
+    const categoryFilter = searchParams.get('category');
+    const colorFilter = searchParams.get('color') as FlagColor | null;
+    const costFilter = searchParams.get('cost');
+    const hasTypeFilter = categoryFilter !== null || colorFilter !== null || costFilter !== null;
+
+    const setFilterParam = useCallback(
+        (key: 'category' | 'color' | 'cost', value: string) => {
+            setSearchParams(
+                (prev) => {
+                    const next = new URLSearchParams(prev);
+                    if (value === '') next.delete(key);
+                    else next.set(key, value);
+                    return next;
+                },
+                { replace: true },
+            );
+        },
+        [setSearchParams],
+    );
+
+    const clearTypeFilters = useCallback(() => {
+        setSearchParams(
+            (prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete('category');
+                next.delete('color');
+                next.delete('cost');
+                return next;
+            },
+            { replace: true },
+        );
+    }, [setSearchParams]);
 
     // `user` isn't available on the very first render (AuthContext's initial fetch is async),
     // so the visibility filter can't be seeded from the server in useState's initializer --
@@ -75,11 +119,16 @@ export default function CollectionPage() {
     const sortedCards = useMemo(() => [...SUPERCARDS].sort(SORTERS[sortKey]), [sortKey]);
 
     const visibleCards = useMemo(() => {
-        if (visibilityFilter === 'collected') return sortedCards.filter((sc) => collected.has(sc.n));
-        if (visibilityFilter === 'seen')
-            return sortedCards.filter((sc) => collected.has(sc.n) || seen.has(sc.n));
-        return sortedCards;
-    }, [sortedCards, visibilityFilter, collected, seen]);
+        let cards = sortedCards;
+        if (visibilityFilter === 'collected') cards = cards.filter((sc) => collected.has(sc.n));
+        else if (visibilityFilter === 'seen')
+            cards = cards.filter((sc) => collected.has(sc.n) || seen.has(sc.n));
+
+        if (categoryFilter) cards = cards.filter((sc) => sc.categories.includes(categoryFilter));
+        if (colorFilter) cards = cards.filter((sc) => sc.color === colorFilter);
+        if (costFilter) cards = cards.filter((sc) => sc.cost === Number(costFilter));
+        return cards;
+    }, [sortedCards, visibilityFilter, collected, seen, categoryFilter, colorFilter, costFilter]);
 
     const getVisibility = useCallback(
         (supercard: Supercard): CardVisibility => {
@@ -135,6 +184,56 @@ export default function CollectionPage() {
                         ))}
                     </select>
                 </label>
+            </div>
+
+            <div className="collection-controls">
+                <label className="collection-controls__sort">
+                    Category
+                    <select
+                        value={categoryFilter ?? ''}
+                        onChange={(e) => setFilterParam('category', e.target.value)}
+                    >
+                        <option value="">All</option>
+                        {ALL_CATEGORIES.map((category) => (
+                            <option key={category} value={category}>
+                                {category}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+
+                <label className="collection-controls__sort">
+                    Color
+                    <select
+                        value={colorFilter ?? ''}
+                        onChange={(e) => setFilterParam('color', e.target.value)}
+                    >
+                        <option value="">All</option>
+                        {ALL_COLORS.map((color) => (
+                            <option key={color} value={color}>
+                                {color}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+
+                <label className="collection-controls__sort">
+                    Cost
+                    <select value={costFilter ?? ''} onChange={(e) => setFilterParam('cost', e.target.value)}>
+                        <option value="">All</option>
+                        {ALL_COSTS.map((cost) => (
+                            <option key={cost} value={cost}>
+                                {cost}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+
+                {hasTypeFilter && (
+                    <button type="button" className="toggle-button" onClick={clearTypeFilters}>
+                        Clear filters
+                    </button>
+                )}
             </div>
 
             <CardGrid cards={visibleCards} getVisibility={getVisibility} />

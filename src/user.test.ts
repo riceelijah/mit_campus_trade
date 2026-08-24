@@ -8,17 +8,9 @@ const VALID_ROW: Record<string, string> = {
     Short_Quote: 'A short quote',
     Categories: 'Dorms, Clubs',
     Color: 'red',
-    ' Type': 'rect',
-    '@FrontFrame': 'front.png',
-    '@BackFrame': 'back.png',
-    '@Art_File': 'art.png',
     'Graphic Attribution Final': '',
-    'Graphic File Location': '',
     'Excerpt (printed)': 'An interview excerpt.',
-    'Link to highlight': 'https://example.com',
     'Highlight ID': 'H1',
-    'Website link': 'https://example.com/1',
-    '@QR_Code': 'qr.png',
     'Exchange question': 'What is your favorite dorm?',
     'Exchange level': '2',
     'Speaker name': 'A Student',
@@ -31,7 +23,7 @@ function studentAt(id: number): User {
 }
 
 function makeCard(id: number, owners: User[]): Card {
-    const card = cardFromRow(VALID_ROW, id);
+    const card = cardFromRow(VALID_ROW, id, 'AAAA');
     for (const owner of owners) card.transferTo(owner);
     return card;
 }

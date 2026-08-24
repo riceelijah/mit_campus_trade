@@ -2,14 +2,15 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useSettings } from '../settings/SettingsContext';
-import { SUPERCARDS } from '../data/supercards';
-import { PublicUserJson, PublicCardInstanceJson, AdminUserCardsJson, FlagColor } from '../types';
+import { SUPERCARDS, ALL_COLORS, ALL_CATEGORIES } from '../data/supercards';
+import {
+    PublicUserJson,
+    PublicCardInstanceJson,
+    AdminUserCardsJson,
+    FlagColor,
+    VerifiedTradeJson,
+} from '../types';
 import { extractError } from '../lib/api';
-
-// Derived from the actual card data rather than hardcoded, so a future content-sheet update
-// (a new team color in use, a renamed/added category tag) is reflected here automatically.
-const ALL_COLORS = [...new Set(SUPERCARDS.map((sc) => sc.color))].sort();
-const ALL_CATEGORIES = [...new Set(SUPERCARDS.flatMap((sc) => sc.categories))].sort();
 
 interface TypeFilter {
     color?: FlagColor;
@@ -59,6 +60,9 @@ export default function AdminPage() {
     const [actionError, setActionError] = useState<string | null>(null);
     const [actionPending, setActionPending] = useState(false);
 
+    const [verifiedTrades, setVerifiedTrades] = useState<VerifiedTradeJson[]>([]);
+    const [verifiedTradesError, setVerifiedTradesError] = useState<string | null>(null);
+
     const loadUsers = useCallback(async () => {
         const res = await fetch('/api/admin/users', { credentials: 'include' });
         if (!res.ok) {
@@ -67,6 +71,16 @@ export default function AdminPage() {
         }
         const body = await res.json();
         setUsers(body.users);
+    }, []);
+
+    const loadVerifiedTrades = useCallback(async () => {
+        const res = await fetch('/api/admin/verified-trades', { credentials: 'include' });
+        if (!res.ok) {
+            setVerifiedTradesError(await extractError(res));
+            return;
+        }
+        const body = await res.json();
+        setVerifiedTrades(body.trades);
     }, []);
 
     const loadCardsFor = useCallback(async (userId: number) => {
@@ -83,8 +97,9 @@ export default function AdminPage() {
     useEffect(() => {
         if (user?.isAdmin) {
             loadUsers();
+            loadVerifiedTrades();
         }
-    }, [user, loadUsers]);
+    }, [user, loadUsers, loadVerifiedTrades]);
 
     const filteredUsers = useMemo(
         () => users.filter((u) => matches(userSearch, u.username, u.name, u.email)),
@@ -132,13 +147,14 @@ export default function AdminPage() {
         loadCardsFor(userId);
     }
 
-    async function runAction(fn: () => Promise<Response>) {
+    async function runAction(fn: () => Promise<Response>, opts?: { refreshTrades?: boolean }) {
         setActionError(null);
         setActionPending(true);
         try {
             const res = await fn();
             if (!res.ok) throw new Error(await extractError(res));
             if (selectedUserId !== null) await loadCardsFor(selectedUserId);
+            if (opts?.refreshTrades) await loadVerifiedTrades();
         } catch (err) {
             setActionError(err instanceof Error ? err.message : 'Something went wrong');
         } finally {
@@ -146,15 +162,17 @@ export default function AdminPage() {
         }
     }
 
-    async function handleToggleCollectionGate(checked: boolean) {
+    // Shared by both toggles below -- both are the same {value: boolean} POST /api/admin/
+    // settings/<key> shape, just a different key.
+    async function handleToggleSetting(settingPath: string, value: boolean) {
         setSettingsError(null);
         setSettingsPending(true);
         try {
-            const res = await fetch('/api/admin/settings/collection-requires-login', {
+            const res = await fetch(`/api/admin/settings/${settingPath}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ value: checked }),
+                body: JSON.stringify({ value }),
             });
             if (!res.ok) throw new Error(await extractError(res));
             await refreshSettings();
@@ -227,6 +245,49 @@ export default function AdminPage() {
         );
     }
 
+    // Unlike handleRevoke above (which only erases the *selected user's* participation), this
+    // wipes the physical card's entire ownership/transaction history -- every student who has
+    // ever held it -- so it always needs its own, more emphatic confirmation regardless of
+    // whose card list it's being clicked from.
+    function handleClearInstanceHistory(cardInstanceId: number) {
+        if (
+            !confirm(
+                "Permanently erase this card's ENTIRE history -- every student who has ever " +
+                    'held it, not just the current owner. This cannot be undone. Continue?',
+            )
+        ) {
+            return;
+        }
+        runAction(
+            () =>
+                fetch(`/api/admin/card-instances/${cardInstanceId}/clear-history`, {
+                    method: 'POST',
+                    credentials: 'include',
+                }),
+            { refreshTrades: true },
+        );
+    }
+
+    function handleClearAllHistory() {
+        if (
+            !confirm(
+                "This will permanently erase EVERY card's ownership and transaction history " +
+                    'for ALL students, site-wide -- every card returns to unclaimed. This cannot ' +
+                    'be undone.\n\nAre you absolutely sure?',
+            )
+        ) {
+            return;
+        }
+        runAction(
+            () =>
+                fetch('/api/admin/card-instances/clear-all-history', {
+                    method: 'POST',
+                    credentials: 'include',
+                }),
+            { refreshTrades: true },
+        );
+    }
+
     function handleBulk(kind: 'bulk-grant' | 'bulk-return' | 'bulk-revoke' | 'bulk-see' | 'bulk-unsee') {
         if (selectedUserId === null) return;
         if (
@@ -259,10 +320,79 @@ export default function AdminPage() {
                         type="checkbox"
                         checked={settings?.collectionRequiresLogin ?? true}
                         disabled={settingsPending}
-                        onChange={(e) => handleToggleCollectionGate(e.target.checked)}
+                        onChange={(e) => handleToggleSetting('collection-requires-login', e.target.checked)}
                     />
                     Require login to view the Collection page
                 </label>
+                <label
+                    className="admin-settings__toggle"
+                    title="Only Home, Register, Login, and Account stay reachable for everyone else -- admins always see the full site."
+                >
+                    <input
+                        type="checkbox"
+                        checked={settings?.siteLockedDown ?? false}
+                        disabled={settingsPending}
+                        onChange={(e) => handleToggleSetting('site-locked-down', e.target.checked)}
+                    />
+                    Pre-launch lockdown (only Home/Register/Login/Account reachable, admins exempt)
+                </label>
+            </div>
+
+            <div className="admin-settings admin-danger-zone">
+                <h2>Danger zone</h2>
+                <p className="admin-card-row__categories">
+                    Wipes every card&rsquo;s ownership and transaction history site-wide, returning the entire
+                    pool to unclaimed. Individual cards can be reset the same way from a student&rsquo;s card
+                    list below (look for &ldquo;Reset&rdquo; on each card).
+                </p>
+                <button
+                    type="button"
+                    className="admin-button--danger"
+                    disabled={actionPending}
+                    onClick={handleClearAllHistory}
+                >
+                    Clear ALL ownership &amp; history
+                </button>
+            </div>
+
+            <div className="admin-settings">
+                <h2>Verified trades</h2>
+                <p className="admin-card-row__categories">
+                    Two-way trades the system detected automatically -- both sides scanned their new card and
+                    correctly said who they got it from.
+                </p>
+                {verifiedTradesError && <p className="form-error">{verifiedTradesError}</p>}
+                <div className="admin-table__scroll">
+                    <table className="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Gave up</th>
+                                <th>Card A</th>
+                                <th>When</th>
+                                <th>Gave up</th>
+                                <th>Card B</th>
+                                <th>When</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {verifiedTrades.map((t) => (
+                                <tr key={t.id}>
+                                    <td>{t.userX.username}</td>
+                                    <td>{t.cardA.uniqueId}</td>
+                                    <td>{new Date(t.datetimeX).toLocaleString()}</td>
+                                    <td>{t.userY.username}</td>
+                                    <td>{t.cardB.uniqueId}</td>
+                                    <td>{new Date(t.datetimeY).toLocaleString()}</td>
+                                </tr>
+                            ))}
+                            {verifiedTrades.length === 0 && (
+                                <tr>
+                                    <td colSpan={6}>No verified trades yet.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {usersError && <p className="form-error">{usersError}</p>}
@@ -443,7 +573,8 @@ export default function AdminPage() {
                                                             className="admin-instance-chip"
                                                         >
                                                             <span>
-                                                                #{instance.cardInstanceId}
+                                                                {instance.uniqueId} (#
+                                                                {instance.cardInstanceId})
                                                                 {!ownedByThem && (
                                                                     <em className="admin-instance-chip__note">
                                                                         {' '}
@@ -491,6 +622,19 @@ export default function AdminPage() {
                                                                 }
                                                             >
                                                                 Revoke
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="admin-button--danger"
+                                                                title="Wipes this physical card's ENTIRE history -- every student who's ever held it, not just this one -- and returns it to the unclaimed pool. Cannot be undone."
+                                                                disabled={actionPending}
+                                                                onClick={() =>
+                                                                    handleClearInstanceHistory(
+                                                                        instance.cardInstanceId,
+                                                                    )
+                                                                }
+                                                            >
+                                                                Reset
                                                             </button>
 
                                                             {transferringInstanceId ===

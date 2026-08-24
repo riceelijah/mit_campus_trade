@@ -38,3 +38,16 @@ for (const supercard of SUPERCARDS) {
 export function getSupercardByHighlightId(highlightId: string): Supercard | undefined {
     return byHighlightId.get(highlightId);
 }
+
+/**
+ * Every team color actually in use among SUPERCARDS, sorted -- as opposed to types.ts's
+ * VALID_COLORS (the full 12-color universe, whether or not a card is printed in it yet).
+ * Derived from the real card data rather than hardcoded, so a future content-sheet update (a
+ * new color in use) is reflected automatically. Shared by CollectionPage's and AdminPage's
+ * color filters, so both stay in sync with each other and with the data by construction.
+ */
+export const ALL_COLORS = [...new Set(SUPERCARDS.map((sc) => sc.color))].sort();
+
+/** Every category tag actually in use among SUPERCARDS, sorted -- same derivation/sharing
+ *  rationale as ALL_COLORS. */
+export const ALL_CATEGORIES = [...new Set(SUPERCARDS.flatMap((sc) => sc.categories))].sort();

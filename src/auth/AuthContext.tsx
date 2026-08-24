@@ -74,7 +74,7 @@ function cardsFromJson(raw: PublicCardInstanceJson[]): Card[] {
     for (const item of raw) {
         const supercard = getSupercard(item.supercardN);
         if (!supercard) continue; // defensive: server referenced a card number we don't have
-        const card = new Card(supercard, item.cardInstanceId);
+        const card = new Card(supercard, item.cardInstanceId, item.uniqueId);
         for (const event of item.custody) {
             card.transferTo(userFromJson(event.owner), new Date(event.acquiredAt));
         }
