@@ -175,7 +175,15 @@ adminRouter.delete('/users/:userId/card-instances/:cardInstanceId', (req, res) =
         return;
     }
 
-    revokeCardInstanceFromUser(userId, cardInstanceId);
+    try {
+        revokeCardInstanceFromUser(userId, cardInstanceId);
+    } catch (err) {
+        // revokeCardInstanceFromUser refuses (rather than corrupting the card's history) when
+        // userId isn't at one of the two ends of it -- report that as a normal 409, not a
+        // generic 500, since it's an expected, actionable outcome for the admin, not a bug.
+        res.status(409).json({ error: err instanceof Error ? err.message : 'Could not revoke this card' });
+        return;
+    }
     res.status(200).json({ ok: true });
 });
 
@@ -367,7 +375,21 @@ adminRouter.post('/users/:userId/bulk-revoke', (req, res) => {
 
     const targetNs = new Set(matchingSupercards(filter).map((sc) => sc.n));
     const instances = cardInstancesCollectedBy(userId).filter((inst) => targetNs.has(inst.supercard_n));
-    for (const instance of instances) revokeCardInstanceFromUser(userId, instance.id);
+    // Each instance is its own transaction (see revokeCardInstanceFromUser), so a refusal
+    // partway through doesn't undo the ones already revoked -- report how many made it through
+    // alongside why the rest didn't, rather than a bare 500 with no explanation.
+    let revoked = 0;
+    try {
+        for (const instance of instances) {
+            revokeCardInstanceFromUser(userId, instance.id);
+            revoked++;
+        }
+    } catch (err) {
+        const reason = err instanceof Error ? err.message : 'Could not revoke this card';
+        const progress = revoked > 0 ? ` (${revoked} of ${instances.length} were revoked before this happened.)` : '';
+        res.status(409).json({ error: reason + progress });
+        return;
+    }
     res.status(200).json({ revoked: instances.length });
 });
 

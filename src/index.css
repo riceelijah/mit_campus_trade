@@ -1043,43 +1043,29 @@ a {
     gap: 8px;
 }
 
-.admin-layout {
-    display: grid;
-    /* Grid items default to min-width: auto (their content's intrinsic width), which a
-       5-column table with real email addresses comfortably exceeds -- without min-width: 0
-       on the children below, that intrinsic width would force this whole grid (and the page
-       with it) to grow past the viewport instead of letting .admin-table__scroll's own
-       overflow-x handle it internally. That's what caused both the always-on desktop
-       scrollbar (the old 320px column genuinely wasn't enough, so the *inner* scrollbar kicked
-       in even with empty space to spare) and the mobile page-level horizontal scroll
-       (confirmed via a real width audit -- not a guess). */
-    grid-template-columns: 420px 1fr;
-    gap: 24px;
-    align-items: start;
-    margin-top: 16px;
-}
-
-/* No student selected yet -- let the list use the full width instead of leaving the second
-   column empty and the table cramped into 380px for no reason. */
-.admin-layout--single {
-    grid-template-columns: 1fr;
-}
-
-@media (max-width: 800px) {
-    .admin-layout {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Same neutral zone treatment as .admin-settings above, for the two side-by-side panels in
-   the layout grid below. */
-.admin-users-panel,
-.admin-detail {
+/* Same neutral zone treatment as .admin-settings above. Used to also apply to a second,
+   side-by-side "<student>'s cards" panel (see .admin-student-detail below for where that
+   content lives now -- nested inside a selected student's own row instead). */
+.admin-users-panel {
     min-width: 0;
     padding: 12px 16px;
     background: #f7f7f7;
     border: 1px solid #e5e5e5;
     border-radius: 8px;
+    margin-top: 16px;
+}
+
+/* The expandable row a selected student's row opens into, in the Students table -- same
+   click-to-toggle pattern as .admin-table__detail-row's other use for verified trades, just
+   holding a lot more (bulk actions, card search, the full card list) since a student's card
+   detail used to be its own separate side-by-side panel. */
+.admin-student-detail {
+    padding: 8px 4px;
+}
+
+.admin-student-detail__heading {
+    margin: 0 0 8px;
+    font-size: 1rem;
 }
 
 .admin-table__scroll {

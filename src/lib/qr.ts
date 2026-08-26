@@ -7,12 +7,15 @@
  * subdomains, localhost) and even over the site's lifetime, and this must keep working
  * unchanged through all of it. `highlightId` identifies the card *design* (a Supercard's
  * Highlight ID); `uniqueId`, present only on a specific physical copy's own QR code,
- * identifies that exact copy. Returns undefined if the payload isn't a recognizable card link.
+ * identifies that exact copy, and is upcased to match how it's stored (every printed
+ * unique_id is uppercase, so a real scan is unaffected -- this only matters for a full URL
+ * pasted in by hand with the id typed in lowercase, same as parsePrintedCardId below).
+ * Returns undefined if the payload isn't a recognizable card link.
  */
 export function parseCardUrl(scanned: string): { highlightId: string; uniqueId?: string } | undefined {
     const match = scanned.trim().match(/\/cards\/([0-9]+)(?:\/([A-Za-z0-9]+))?(?:[/?#]|$)/);
     if (!match) return undefined;
-    return { highlightId: match[1], uniqueId: match[2] };
+    return { highlightId: match[1], uniqueId: match[2]?.toUpperCase() };
 }
 
 /** Every physical card copy's own unique_id is exactly 4 alphanumeric characters -- see

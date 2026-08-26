@@ -167,6 +167,17 @@ export default function AdminPage() {
         loadCardsFor(userId);
     }
 
+    // Clicking an already-selected student row collapses their card detail back down, the
+    // same click-to-toggle pattern the verified-trades table uses for its own expandable rows.
+    function deselectUser() {
+        setSelectedUserId(null);
+        setSelectedUserCards([]);
+        setSelectedUserSeen(new Set());
+        setCardSearch('');
+        setTransferringInstanceId(null);
+        setActionError(null);
+    }
+
     async function runAction(fn: () => Promise<Response>, opts?: { refreshTrades?: boolean }) {
         setActionError(null);
         setActionPending(true);
@@ -375,8 +386,6 @@ export default function AdminPage() {
         );
     }
 
-    const selectedUser = users.find((u) => u.id === selectedUserId);
-
     return (
         <div>
             <h1>Admin</h1>
@@ -528,363 +537,449 @@ export default function AdminPage() {
 
             {usersError && <p className="form-error">{usersError}</p>}
 
-            <div className={`admin-layout${selectedUserId === null ? ' admin-layout--single' : ''}`}>
-                <CollapsibleSection title="Students" className="admin-users-panel">
-                    <input
-                        type="search"
-                        className="admin-search"
-                        placeholder="Search students..."
-                        value={userSearch}
-                        onChange={(e) => setUserSearch(e.target.value)}
-                    />
-                    <div className="admin-table__scroll">
-                        <table className="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Username</th>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Team</th>
-                                    <th>Admin</th>
-                                    <th>Color Challenge</th>
-                                    <th>Sub-Objective</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredUsers.map((u) => (
-                                    <tr
-                                        key={u.id}
-                                        className={
-                                            u.id === selectedUserId ? 'admin-table__row--selected' : ''
-                                        }
-                                        onClick={() => selectUser(u.id)}
-                                    >
-                                        <td>{u.username}</td>
-                                        <td>
-                                            {u.name}
-                                            {u.colorChallengeCompleted && (
-                                                <span
-                                                    className="chip chip--inline"
-                                                    title="Color Challenge complete"
-                                                >
-                                                    🎨
-                                                </span>
-                                            )}
-                                            {u.subObjectiveCompleted && (
-                                                <span
-                                                    className="chip chip--inline"
-                                                    title="Sub-Objective complete"
-                                                >
-                                                    🎯
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td>{u.email}</td>
-                                        <td>{capitalize(u.team)}</td>
-                                        <td onClick={(e) => e.stopPropagation()}>
-                                            <input
-                                                type="checkbox"
-                                                checked={u.isAdmin}
-                                                disabled={u.id === user.id}
-                                                title={
-                                                    u.id === user.id
-                                                        ? "You can't change your own admin status"
-                                                        : undefined
-                                                }
-                                                onChange={(e) =>
-                                                    handleToggleAdmin(u.id, u.username, e.target.checked)
-                                                }
-                                            />
-                                        </td>
-                                        <td onClick={(e) => e.stopPropagation()}>
-                                            <input
-                                                type="checkbox"
-                                                checked={u.colorChallengeCompleted}
-                                                onChange={(e) =>
-                                                    handleToggleAchievement(
-                                                        u.id,
-                                                        'color-challenge',
-                                                        e.target.checked,
-                                                    )
-                                                }
-                                            />
-                                        </td>
-                                        <td onClick={(e) => e.stopPropagation()}>
-                                            <input
-                                                type="checkbox"
-                                                checked={u.subObjectiveCompleted}
-                                                onChange={(e) =>
-                                                    handleToggleAchievement(
-                                                        u.id,
-                                                        'sub-objective',
-                                                        e.target.checked,
-                                                    )
-                                                }
-                                            />
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </CollapsibleSection>
-
-                {selectedUserId !== null && (
-                    <CollapsibleSection
-                        title={`${selectedUser?.username ?? ''}’s cards`}
-                        className="admin-detail"
-                        defaultOpen={false}
-                    >
-                        {actionError && <p className="form-error">{actionError}</p>}
-
-                        <div className="admin-bulk-actions">
-                            <label className="admin-bulk-actions__filter">
-                                Apply to
-                                <select
-                                    value={typeFilterValue}
-                                    onChange={(e) => setTypeFilterValue(e.target.value)}
-                                >
-                                    <option value="">All cards</option>
-                                    <optgroup label="Team color">
-                                        {ALL_COLORS.map((color) => (
-                                            <option key={color} value={`color:${color}`}>
-                                                {capitalize(color)}
-                                            </option>
-                                        ))}
-                                    </optgroup>
-                                    <optgroup label="Category">
-                                        {ALL_CATEGORIES.map((category) => (
-                                            <option key={category} value={`category:${category}`}>
-                                                {category}
-                                            </option>
-                                        ))}
-                                    </optgroup>
-                                </select>
-                            </label>
-
-                            <div className="admin-bulk-actions__groups">
-                                {/* Ownership: left-to-right in increasing severity -- grant adds,
-                                    return is reversible, revoke is not. */}
-                                <div className="admin-bulk-actions__group">
-                                    <span className="admin-bulk-actions__group-label">Ownership</span>
-                                    <div className="admin-bulk-actions__buttons">
-                                        <button
-                                            type="button"
-                                            disabled={actionPending}
-                                            onClick={() => handleBulk('bulk-grant')}
-                                        >
-                                            Grant
-                                        </button>
-                                        <button
-                                            type="button"
-                                            title="Takes matching cards back from them, but keeps the cards in their history"
-                                            disabled={actionPending}
-                                            onClick={() => handleBulk('bulk-return')}
-                                        >
-                                            Return
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="admin-button--danger"
-                                            title="Permanently erases matching cards from their history -- cannot be undone"
-                                            disabled={actionPending}
-                                            onClick={() => handleBulk('bulk-revoke')}
-                                        >
-                                            Revoke
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Seen status: independent of ownership above -- just the
-                                    greyscale "seen but not collected" flag. */}
-                                <div className="admin-bulk-actions__group">
-                                    <span className="admin-bulk-actions__group-label">Seen status</span>
-                                    <div className="admin-bulk-actions__buttons">
-                                        <button
-                                            type="button"
-                                            disabled={actionPending}
-                                            onClick={() => handleBulk('bulk-see')}
-                                        >
-                                            See
-                                        </button>
-                                        <button
-                                            type="button"
-                                            disabled={actionPending}
-                                            onClick={() => handleBulk('bulk-unsee')}
-                                        >
-                                            Unsee
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <input
-                            type="search"
-                            className="admin-search"
-                            placeholder="Search cards by title, color, or category..."
-                            value={cardSearch}
-                            onChange={(e) => setCardSearch(e.target.value)}
-                        />
-
-                        <ul className="admin-card-list">
-                            {filteredCards.map((sc) => {
-                                const instances = instancesBySupercard.get(sc.n) ?? [];
-                                const seen = selectedUserSeen.has(sc.n);
+            <CollapsibleSection title="Students" className="admin-users-panel">
+                <input
+                    type="search"
+                    className="admin-search"
+                    placeholder="Search students..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                />
+                <div className="admin-table__scroll">
+                    <table className="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Team</th>
+                                <th>Admin</th>
+                                <th>Color Challenge</th>
+                                <th>Sub-Objective</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredUsers.map((u) => {
+                                const selected = u.id === selectedUserId;
                                 return (
-                                    <li key={sc.n} className="admin-card-row">
-                                        <span
-                                            className="admin-card-row__swatch"
-                                            style={{ backgroundColor: sc.color }}
-                                            title={capitalize(sc.color)}
-                                        />
-                                        <div className="admin-card-row__body">
-                                            <div className="admin-card-row__title">
-                                                {sc.title}
-                                                <span className="admin-card-row__categories">
-                                                    {sc.categories.join(', ')}
-                                                </span>
-                                            </div>
-
-                                            <label className="admin-card-row__seen">
+                                    <Fragment key={u.id}>
+                                        <tr
+                                            className={selected ? 'admin-table__row--selected' : ''}
+                                            aria-expanded={selected}
+                                            onClick={() => (selected ? deselectUser() : selectUser(u.id))}
+                                        >
+                                            <td>{u.username}</td>
+                                            <td>
+                                                {u.name}
+                                                {u.colorChallengeCompleted && (
+                                                    <span
+                                                        className="chip chip--inline"
+                                                        title="Color Challenge complete"
+                                                    >
+                                                        🎨
+                                                    </span>
+                                                )}
+                                                {u.subObjectiveCompleted && (
+                                                    <span
+                                                        className="chip chip--inline"
+                                                        title="Sub-Objective complete"
+                                                    >
+                                                        🎯
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td>{u.email}</td>
+                                            <td>{capitalize(u.team)}</td>
+                                            <td onClick={(e) => e.stopPropagation()}>
                                                 <input
                                                     type="checkbox"
-                                                    checked={seen}
-                                                    disabled={actionPending}
-                                                    onChange={(e) => handleToggleSeen(sc.n, e.target.checked)}
+                                                    checked={u.isAdmin}
+                                                    disabled={u.id === user.id}
+                                                    title={
+                                                        u.id === user.id
+                                                            ? "You can't change your own admin status"
+                                                            : undefined
+                                                    }
+                                                    onChange={(e) =>
+                                                        handleToggleAdmin(u.id, u.username, e.target.checked)
+                                                    }
                                                 />
-                                                Seen
-                                            </label>
+                                            </td>
+                                            <td onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={u.colorChallengeCompleted}
+                                                    onChange={(e) =>
+                                                        handleToggleAchievement(
+                                                            u.id,
+                                                            'color-challenge',
+                                                            e.target.checked,
+                                                        )
+                                                    }
+                                                />
+                                            </td>
+                                            <td onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={u.subObjectiveCompleted}
+                                                    onChange={(e) =>
+                                                        handleToggleAchievement(
+                                                            u.id,
+                                                            'sub-objective',
+                                                            e.target.checked,
+                                                        )
+                                                    }
+                                                />
+                                            </td>
+                                        </tr>
 
-                                            <div className="admin-instance-list">
-                                                {instances.map((instance) => {
-                                                    const ownedByThem =
-                                                        currentOwnerId(instance) === selectedUserId;
-                                                    return (
-                                                        <div
-                                                            key={instance.cardInstanceId}
-                                                            className="admin-instance-chip"
-                                                        >
-                                                            <span>
-                                                                {instance.uniqueId} (#
-                                                                {instance.cardInstanceId})
-                                                                {!ownedByThem && (
-                                                                    <em className="admin-instance-chip__note">
-                                                                        {' '}
-                                                                        (no longer held)
-                                                                    </em>
-                                                                )}
-                                                            </span>
-                                                            {ownedByThem && (
-                                                                <>
-                                                                    <button
-                                                                        type="button"
-                                                                        disabled={actionPending}
-                                                                        onClick={() =>
-                                                                            setTransferringInstanceId(
-                                                                                transferringInstanceId ===
-                                                                                    instance.cardInstanceId
-                                                                                    ? null
-                                                                                    : instance.cardInstanceId,
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        Transfer
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        title="Takes it back from them, but keeps it in their history"
-                                                                        disabled={actionPending}
-                                                                        onClick={() =>
-                                                                            handleReturn(
-                                                                                instance.cardInstanceId,
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        Return
-                                                                    </button>
-                                                                </>
-                                                            )}
-                                                            <button
-                                                                type="button"
-                                                                className="admin-button--danger"
-                                                                title="Permanently erases this from their history -- cannot be undone"
-                                                                disabled={actionPending}
-                                                                onClick={() =>
-                                                                    handleRevoke(instance.cardInstanceId)
-                                                                }
-                                                            >
-                                                                Revoke
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                className="admin-button--danger"
-                                                                title="Wipes this physical card's ENTIRE history -- every student who's ever held it, not just this one -- and returns it to the unclaimed pool. Cannot be undone."
-                                                                disabled={actionPending}
-                                                                onClick={() =>
-                                                                    handleClearInstanceHistory(
-                                                                        instance.cardInstanceId,
-                                                                    )
-                                                                }
-                                                            >
-                                                                Reset
-                                                            </button>
+                                        {selected && (
+                                            <tr className="admin-table__detail-row">
+                                                <td colSpan={7}>
+                                                    <div className="admin-student-detail">
+                                                        <h3 className="admin-student-detail__heading">
+                                                            {u.username}&rsquo;s cards
+                                                        </h3>
 
-                                                            {transferringInstanceId ===
-                                                                instance.cardInstanceId && (
-                                                                <div className="admin-transfer-panel">
-                                                                    <input
-                                                                        type="search"
-                                                                        autoFocus
-                                                                        placeholder="Search students..."
-                                                                        value={transferSearch}
-                                                                        onChange={(e) =>
-                                                                            setTransferSearch(e.target.value)
-                                                                        }
-                                                                    />
-                                                                    <ul>
-                                                                        {transferCandidates.map((u) => (
-                                                                            <li key={u.id}>
-                                                                                <button
-                                                                                    type="button"
+                                                        {actionError && (
+                                                            <p className="form-error">{actionError}</p>
+                                                        )}
+
+                                                        <div className="admin-bulk-actions">
+                                                            <label className="admin-bulk-actions__filter">
+                                                                Apply to
+                                                                <select
+                                                                    value={typeFilterValue}
+                                                                    onChange={(e) =>
+                                                                        setTypeFilterValue(e.target.value)
+                                                                    }
+                                                                >
+                                                                    <option value="">All cards</option>
+                                                                    <optgroup label="Team color">
+                                                                        {ALL_COLORS.map((color) => (
+                                                                            <option
+                                                                                key={color}
+                                                                                value={`color:${color}`}
+                                                                            >
+                                                                                {capitalize(color)}
+                                                                            </option>
+                                                                        ))}
+                                                                    </optgroup>
+                                                                    <optgroup label="Category">
+                                                                        {ALL_CATEGORIES.map((category) => (
+                                                                            <option
+                                                                                key={category}
+                                                                                value={`category:${category}`}
+                                                                            >
+                                                                                {category}
+                                                                            </option>
+                                                                        ))}
+                                                                    </optgroup>
+                                                                </select>
+                                                            </label>
+
+                                                            <div className="admin-bulk-actions__groups">
+                                                                {/* Ownership: left-to-right in increasing
+                                                                    severity -- grant adds, return is
+                                                                    reversible, revoke is not. */}
+                                                                <div className="admin-bulk-actions__group">
+                                                                    <span className="admin-bulk-actions__group-label">
+                                                                        Ownership
+                                                                    </span>
+                                                                    <div className="admin-bulk-actions__buttons">
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={actionPending}
+                                                                            onClick={() =>
+                                                                                handleBulk('bulk-grant')
+                                                                            }
+                                                                        >
+                                                                            Grant
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            title="Takes matching cards back from them, but keeps the cards in their history"
+                                                                            disabled={actionPending}
+                                                                            onClick={() =>
+                                                                                handleBulk('bulk-return')
+                                                                            }
+                                                                        >
+                                                                            Return
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="admin-button--danger"
+                                                                            title="Permanently erases matching cards from their history -- cannot be undone"
+                                                                            disabled={actionPending}
+                                                                            onClick={() =>
+                                                                                handleBulk('bulk-revoke')
+                                                                            }
+                                                                        >
+                                                                            Revoke
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Seen status: independent of ownership
+                                                                    above -- just the greyscale "seen but
+                                                                    not collected" flag. */}
+                                                                <div className="admin-bulk-actions__group">
+                                                                    <span className="admin-bulk-actions__group-label">
+                                                                        Seen status
+                                                                    </span>
+                                                                    <div className="admin-bulk-actions__buttons">
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={actionPending}
+                                                                            onClick={() =>
+                                                                                handleBulk('bulk-see')
+                                                                            }
+                                                                        >
+                                                                            See
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={actionPending}
+                                                                            onClick={() =>
+                                                                                handleBulk('bulk-unsee')
+                                                                            }
+                                                                        >
+                                                                            Unsee
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <input
+                                                            type="search"
+                                                            className="admin-search"
+                                                            placeholder="Search cards by title, color, or category..."
+                                                            value={cardSearch}
+                                                            onChange={(e) => setCardSearch(e.target.value)}
+                                                        />
+
+                                                        <ul className="admin-card-list">
+                                                            {filteredCards.map((sc) => {
+                                                                const instances =
+                                                                    instancesBySupercard.get(sc.n) ?? [];
+                                                                const seen = selectedUserSeen.has(sc.n);
+                                                                return (
+                                                                    <li
+                                                                        key={sc.n}
+                                                                        className="admin-card-row"
+                                                                    >
+                                                                        <span
+                                                                            className="admin-card-row__swatch"
+                                                                            style={{
+                                                                                backgroundColor: sc.color,
+                                                                            }}
+                                                                            title={capitalize(sc.color)}
+                                                                        />
+                                                                        <div className="admin-card-row__body">
+                                                                            <div className="admin-card-row__title">
+                                                                                {sc.title}
+                                                                                <span className="admin-card-row__categories">
+                                                                                    {sc.categories.join(', ')}
+                                                                                </span>
+                                                                            </div>
+
+                                                                            <label className="admin-card-row__seen">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={seen}
                                                                                     disabled={actionPending}
-                                                                                    onClick={() =>
-                                                                                        handleTransfer(
-                                                                                            instance.cardInstanceId,
-                                                                                            u.id,
+                                                                                    onChange={(e) =>
+                                                                                        handleToggleSeen(
+                                                                                            sc.n,
+                                                                                            e.target.checked,
                                                                                         )
                                                                                     }
-                                                                                >
-                                                                                    {u.username}
-                                                                                </button>
-                                                                            </li>
-                                                                        ))}
-                                                                        {transferCandidates.length === 0 && (
-                                                                            <li>No matches.</li>
-                                                                        )}
-                                                                    </ul>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
+                                                                                />
+                                                                                Seen
+                                                                            </label>
 
-                                        <button
-                                            type="button"
-                                            disabled={actionPending}
-                                            onClick={() => handleGrant(sc.n)}
-                                        >
-                                            + Grant
-                                        </button>
-                                    </li>
+                                                                            <div className="admin-instance-list">
+                                                                                {instances.map((instance) => {
+                                                                                    const ownedByThem =
+                                                                                        currentOwnerId(
+                                                                                            instance,
+                                                                                        ) === selectedUserId;
+                                                                                    return (
+                                                                                        <div
+                                                                                            key={
+                                                                                                instance.cardInstanceId
+                                                                                            }
+                                                                                            className="admin-instance-chip"
+                                                                                        >
+                                                                                            <span>
+                                                                                                {
+                                                                                                    instance.uniqueId
+                                                                                                }{' '}
+                                                                                                (#
+                                                                                                {
+                                                                                                    instance.cardInstanceId
+                                                                                                }
+                                                                                                )
+                                                                                                {!ownedByThem && (
+                                                                                                    <em className="admin-instance-chip__note">
+                                                                                                        {' '}
+                                                                                                        (no
+                                                                                                        longer
+                                                                                                        held)
+                                                                                                    </em>
+                                                                                                )}
+                                                                                            </span>
+                                                                                            {ownedByThem && (
+                                                                                                <>
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        disabled={
+                                                                                                            actionPending
+                                                                                                        }
+                                                                                                        onClick={() =>
+                                                                                                            setTransferringInstanceId(
+                                                                                                                transferringInstanceId ===
+                                                                                                                    instance.cardInstanceId
+                                                                                                                    ? null
+                                                                                                                    : instance.cardInstanceId,
+                                                                                                            )
+                                                                                                        }
+                                                                                                    >
+                                                                                                        Transfer
+                                                                                                    </button>
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        title="Takes it back from them, but keeps it in their history"
+                                                                                                        disabled={
+                                                                                                            actionPending
+                                                                                                        }
+                                                                                                        onClick={() =>
+                                                                                                            handleReturn(
+                                                                                                                instance.cardInstanceId,
+                                                                                                            )
+                                                                                                        }
+                                                                                                    >
+                                                                                                        Return
+                                                                                                    </button>
+                                                                                                </>
+                                                                                            )}
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                className="admin-button--danger"
+                                                                                                title="Permanently erases this from their history -- cannot be undone"
+                                                                                                disabled={
+                                                                                                    actionPending
+                                                                                                }
+                                                                                                onClick={() =>
+                                                                                                    handleRevoke(
+                                                                                                        instance.cardInstanceId,
+                                                                                                    )
+                                                                                                }
+                                                                                            >
+                                                                                                Revoke
+                                                                                            </button>
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                className="admin-button--danger"
+                                                                                                title="Wipes this physical card's ENTIRE history -- every student who's ever held it, not just this one -- and returns it to the unclaimed pool. Cannot be undone."
+                                                                                                disabled={
+                                                                                                    actionPending
+                                                                                                }
+                                                                                                onClick={() =>
+                                                                                                    handleClearInstanceHistory(
+                                                                                                        instance.cardInstanceId,
+                                                                                                    )
+                                                                                                }
+                                                                                            >
+                                                                                                Reset
+                                                                                            </button>
+
+                                                                                            {transferringInstanceId ===
+                                                                                                instance.cardInstanceId && (
+                                                                                                <div className="admin-transfer-panel">
+                                                                                                    <input
+                                                                                                        type="search"
+                                                                                                        autoFocus
+                                                                                                        placeholder="Search students..."
+                                                                                                        value={
+                                                                                                            transferSearch
+                                                                                                        }
+                                                                                                        onChange={(e) =>
+                                                                                                            setTransferSearch(
+                                                                                                                e
+                                                                                                                    .target
+                                                                                                                    .value,
+                                                                                                            )
+                                                                                                        }
+                                                                                                    />
+                                                                                                    <ul>
+                                                                                                        {transferCandidates.map(
+                                                                                                            (
+                                                                                                                candidate,
+                                                                                                            ) => (
+                                                                                                                <li
+                                                                                                                    key={
+                                                                                                                        candidate.id
+                                                                                                                    }
+                                                                                                                >
+                                                                                                                    <button
+                                                                                                                        type="button"
+                                                                                                                        disabled={
+                                                                                                                            actionPending
+                                                                                                                        }
+                                                                                                                        onClick={() =>
+                                                                                                                            handleTransfer(
+                                                                                                                                instance.cardInstanceId,
+                                                                                                                                candidate.id,
+                                                                                                                            )
+                                                                                                                        }
+                                                                                                                    >
+                                                                                                                        {
+                                                                                                                            candidate.username
+                                                                                                                        }
+                                                                                                                    </button>
+                                                                                                                </li>
+                                                                                                            ),
+                                                                                                        )}
+                                                                                                        {transferCandidates.length ===
+                                                                                                            0 && (
+                                                                                                            <li>
+                                                                                                                No
+                                                                                                                matches.
+                                                                                                            </li>
+                                                                                                        )}
+                                                                                                    </ul>
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={actionPending}
+                                                                            onClick={() => handleGrant(sc.n)}
+                                                                        >
+                                                                            + Grant
+                                                                        </button>
+                                                                    </li>
+                                                                );
+                                                            })}
+                                                        </ul>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
                                 );
                             })}
-                        </ul>
-                    </CollapsibleSection>
-                )}
-            </div>
+                        </tbody>
+                    </table>
+                </div>
+            </CollapsibleSection>
 
             <CollapsibleSection
                 title="Danger zone"
