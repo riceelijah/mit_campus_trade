@@ -11,7 +11,7 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import { useSettings } from '../settings/SettingsContext';
 import { CollectionViewMode, FlagColor } from '../types';
-import CardGrid from '../components/CardGrid';
+import CardGrid, { CardGridEntry } from '../components/CardGrid';
 import { capitalize } from '../lib/format';
 
 type SortKey = 'dex' | 'title' | 'cost' | 'color';
@@ -158,6 +158,25 @@ export default function CollectionPage() {
         return cards;
     }, [sortedCards, visibilityFilter, owned, collected, seen, categoryFilter, colorFilter, costFilter]);
 
+    // In every other visibility mode this is just one entry per design (unchanged behavior).
+    // In "Hand" (owned), a player holding multiple copies of the same design gets one entry
+    // per owned Card *instance* instead of one collapsed tile -- each carries its own
+    // uniqueId, so CardThumbnail links each to its own custody chain (see the `?instance=`
+    // param on CardDetailPage).
+    const gridEntries = useMemo<CardGridEntry[]>(() => {
+        if (visibilityFilter !== 'owned' || !user) {
+            return visibleCards.map((supercard) => ({ supercard }));
+        }
+        const ownedByN = new Map<number, string[]>();
+        for (const card of user.owned) {
+            if (!ownedByN.has(card.n)) ownedByN.set(card.n, []);
+            ownedByN.get(card.n)!.push(card.uniqueId);
+        }
+        return visibleCards.flatMap((supercard) =>
+            (ownedByN.get(supercard.n) ?? []).map((uniqueId) => ({ supercard, uniqueId })),
+        );
+    }, [visibleCards, visibilityFilter, user]);
+
     const getVisibility = useCallback(
         (supercard: Supercard): CardVisibility => {
             if (collected.has(supercard.n)) return 'collected';
@@ -179,7 +198,23 @@ export default function CollectionPage() {
 
     return (
         <div>
-            <h1>Your Collection</h1>
+            <div className="collection-title-row">
+                <h1>Your Collection</h1>
+                {(user?.colorChallengeCompleted || user?.subObjectiveCompleted) && (
+                    <div className="chip-row collection-title-row__badges">
+                        {user.colorChallengeCompleted && (
+                            <span className="chip" title="Color Challenge complete">
+                                🎨
+                            </span>
+                        )}
+                        {user.subObjectiveCompleted && (
+                            <span className="chip" title="Sub-Objective complete">
+                                🎯
+                            </span>
+                        )}
+                    </div>
+                )}
+            </div>
             <p>
                 Cards you&rsquo;ve collected appear in full color. Cards you&rsquo;ve seen but not collected
                 appear greyed out. Cards you haven&rsquo;t seen yet just show their card number.
@@ -316,7 +351,7 @@ export default function CollectionPage() {
                 )}
             </div>
 
-            <CardGrid cards={visibleCards} getVisibility={getVisibility} />
+            <CardGrid entries={gridEntries} getVisibility={getVisibility} />
         </div>
     );
 }

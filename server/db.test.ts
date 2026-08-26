@@ -15,6 +15,7 @@ process.env.DB_PATH = dbPath;
 const {
     db,
     insertUser,
+    findUserById,
     insertCardInstanceForImport,
     findAvailableInstance,
     grantCardInstance,
@@ -27,11 +28,18 @@ const {
     revokeCardInstanceFromUser,
     clearCardInstanceHistory,
     clearAllOwnership,
+    setExchangeEventReceivedFromOther,
+    setExchangeEventConversationNotes,
+    listExchangeEvents,
+    setColorChallengeCompleted,
+    setSubObjectiveCompleted,
+    setIsAdmin,
     NoAvailableCopiesError,
     CardInstanceNotFoundError,
     AlreadyOwnedError,
 } = await import('./db');
 const { hashPassword } = await import('./auth/password');
+const { sanitizeUser } = await import('./serialize');
 
 afterAll(() => {
     for (const suffix of ['', '-shm', '-wal']) {
@@ -41,13 +49,13 @@ afterAll(() => {
 
 // Every test shares one on-disk scratch DB (creating a fresh one per test would mean re-doing
 // db.ts's whole startup dance, including its async unassignedUser seed, each time) -- reset
-// the tables that would otherwise leak state between tests (verified trades / custody history
+// the tables that would otherwise leak state between tests (verified trades / exchange history
 // / the pool of instances). Users and sessions are deliberately left alone: tests always mint
 // fresh usernames (see makeUser), and wiping users would also delete the reserved Unassigned
 // account other functions capture a reference to once at module load.
 beforeEach(() => {
     db.exec('DELETE FROM verified_trades');
-    db.exec('DELETE FROM custody_events');
+    db.exec('DELETE FROM exchange_events');
     db.exec('DELETE FROM card_instances');
     db.exec('DELETE FROM seen_supercards');
 });
@@ -148,20 +156,26 @@ describe('tryFormVerifiedTrade (via collectCardInstance)', () => {
         const trades = listVerifiedTrades();
         expect(trades).toHaveLength(1);
         const trade = trades[0];
-        // user_x is always whoever gave away card_instance_a (see tryFormVerifiedTrade) --
-        // which of {alice, bob} lands in the x/a slot vs y/b depends on which side of the
-        // swap got recorded second (that's the event that actually forms the trade), so check
-        // the give-away invariant rather than a fixed slot assignment.
-        if (trade.card_instance_a_id === cardA.id) {
-            expect(trade.user_x_id).toBe(alice.id); // alice gave away card A
-            expect(trade.user_y_id).toBe(bob.id);
-            expect(trade.card_instance_b_id).toBe(cardB.id);
+        // user_one is always whoever gave away card_given_by_user_one_unique_id (see
+        // tryFormVerifiedTrade) -- which of {alice, bob} lands in the one/two slot depends on
+        // which side of the swap got recorded second (that's the event that actually forms
+        // the trade), so check the give-away invariant rather than a fixed slot assignment.
+        if (trade.card_given_by_user_one_unique_id === cardA.unique_id) {
+            expect(trade.user_one_id).toBe(alice.id); // alice gave away card A
+            expect(trade.user_one_name).toBe(alice.name);
+            expect(trade.user_two_id).toBe(bob.id);
+            expect(trade.card_given_by_user_two_unique_id).toBe(cardB.unique_id);
         } else {
-            expect(trade.card_instance_a_id).toBe(cardB.id);
-            expect(trade.user_x_id).toBe(bob.id); // bob gave away card B
-            expect(trade.user_y_id).toBe(alice.id);
-            expect(trade.card_instance_b_id).toBe(cardA.id);
+            expect(trade.card_given_by_user_one_unique_id).toBe(cardB.unique_id);
+            expect(trade.user_one_id).toBe(bob.id); // bob gave away card B
+            expect(trade.user_one_name).toBe(bob.name);
+            expect(trade.user_two_id).toBe(alice.id);
+            expect(trade.card_given_by_user_two_unique_id).toBe(cardA.unique_id);
         }
+        // Card identity round-trips as the 4-character alphanumeric unique_id end to end --
+        // never silently coerced down to a bare internal number.
+        expect(trade.card_given_by_user_one_unique_id).toMatch(/^U\d+$/);
+        expect(trade.card_given_by_user_two_unique_id).toMatch(/^U\d+$/);
     });
 
     it('does not form a trade from a one-sided (unreciprocated) correct attribution', async () => {
@@ -173,7 +187,7 @@ describe('tryFormVerifiedTrade (via collectCardInstance)', () => {
         expect(listVerifiedTrades()).toHaveLength(0);
     });
 
-    it('never reuses the same custody event across two verified trades', async () => {
+    it('never reuses the same exchange event across two verified trades', async () => {
         const alice = await makeUser();
         const bob = await makeUser();
         const carol = await makeUser();
@@ -221,7 +235,7 @@ describe('revokeCardInstanceFromUser', () => {
 });
 
 describe('clearCardInstanceHistory', () => {
-    it("wipes an instance's entire custody history, across every owner it's ever had", async () => {
+    it("wipes an instance's entire exchange history, across every owner it's ever had", async () => {
         const alice = await makeUser();
         const bob = await makeUser();
         const instance = makeInstance(1);
@@ -247,8 +261,8 @@ describe('clearCardInstanceHistory', () => {
 
         clearCardInstanceHistory(cardA.id);
         expect(listVerifiedTrades()).toHaveLength(0);
-        // cardB's own custody history is untouched -- only the trade record (which referenced
-        // cardA's now-deleted custody event) is gone.
+        // cardB's own exchange history is untouched -- only the trade record (which referenced
+        // cardA's now-deleted exchange event) is gone.
         expect(currentOwnerOfCardInstance(cardB.id)).toBe(alice.id);
     });
 });
@@ -309,5 +323,110 @@ describe('randomOtherUsers', () => {
         // sanity: at least bob/carol are eligible candidates
         const eligibleIds = new Set([bob.id, carol.id]);
         expect(others.every((u) => eligibleIds.has(u.id) || u.id !== alice.id)).toBe(true);
+    });
+});
+
+describe('collectCardInstance research-prompt fields', () => {
+    it('returns exchangeEventId and firstEverScan-equivalent matchedExpected for a first-ever scan', async () => {
+        const alice = await makeUser();
+        const instance = makeInstance(1);
+        const result = collectCardInstance(instance.unique_id!, alice.id, null);
+        expect(result.matchedExpected).toBeNull(); // no previous owner -- the "first ever scan" case
+        expect(result.exchangeEventId).toBeTypeOf('number');
+    });
+
+    it('returns a distinct exchangeEventId for a claimed hand-off (not a first-ever scan)', async () => {
+        const alice = await makeUser();
+        const bob = await makeUser();
+        const instance = makeInstance(1);
+        const first = collectCardInstance(instance.unique_id!, alice.id, null);
+        const second = collectCardInstance(instance.unique_id!, bob.id, alice.id);
+        expect(second.matchedExpected).not.toBeNull();
+        expect(second.exchangeEventId).not.toBe(first.exchangeEventId);
+    });
+});
+
+describe('setExchangeEventReceivedFromOther / setExchangeEventConversationNotes', () => {
+    it("records the receiver's answer and rejects a mismatched userId", async () => {
+        const alice = await makeUser();
+        const bob = await makeUser();
+        const instance = makeInstance(1);
+        const { exchangeEventId } = collectCardInstance(instance.unique_id!, alice.id, null);
+
+        expect(setExchangeEventReceivedFromOther(exchangeEventId, bob.id, true)).toBe(false);
+        expect(setExchangeEventReceivedFromOther(exchangeEventId, alice.id, true)).toBe(true);
+
+        const response = listExchangeEvents().find((e) => e.exchange_id === exchangeEventId)!;
+        expect(response.received_from_other_person).toBe('Y');
+    });
+
+    it("records the receiver's conversation notes and rejects a mismatched userId", async () => {
+        const alice = await makeUser();
+        const bob = await makeUser();
+        const carol = await makeUser();
+        const instance = makeInstance(1);
+        collectCardInstance(instance.unique_id!, alice.id, null);
+        const { exchangeEventId } = collectCardInstance(instance.unique_id!, bob.id, alice.id);
+
+        expect(setExchangeEventConversationNotes(exchangeEventId, carol.id, 'nope')).toBe(false);
+        expect(setExchangeEventConversationNotes(exchangeEventId, bob.id, 'we talked about class')).toBe(
+            true,
+        );
+
+        const response = listExchangeEvents().find((e) => e.exchange_id === exchangeEventId)!;
+        expect(response.conversation_notes).toBe('we talked about class');
+    });
+});
+
+describe('listExchangeEvents', () => {
+    it('includes every card-obtained event, not just ones with a research answer', async () => {
+        const alice = await makeUser();
+        const bob = await makeUser();
+        const instance = makeInstance(1);
+        const { exchangeEventId: firstId } = collectCardInstance(instance.unique_id!, alice.id, null);
+        const { exchangeEventId: secondId } = collectCardInstance(instance.unique_id!, bob.id, alice.id);
+        setExchangeEventReceivedFromOther(firstId, alice.id, true);
+        // secondId is left unanswered on purpose -- both should still show up.
+
+        const numericSort = (a: number, b: number) => a - b;
+        const events = listExchangeEvents();
+        expect(events.map((e) => e.exchange_id).sort(numericSort)).toEqual(
+            [firstId, secondId].sort(numericSort),
+        );
+        expect(events.find((e) => e.exchange_id === secondId)?.conversation_notes).toBeNull();
+    });
+});
+
+describe('setColorChallengeCompleted / setSubObjectiveCompleted', () => {
+    it('round-trips through sanitizeUser', async () => {
+        const alice = await makeUser();
+        expect(sanitizeUser(alice).colorChallengeCompleted).toBe(false);
+        expect(sanitizeUser(alice).subObjectiveCompleted).toBe(false);
+
+        setColorChallengeCompleted(alice.id, true);
+        setSubObjectiveCompleted(alice.id, true);
+
+        const updated = findUserById(alice.id)!;
+        expect(sanitizeUser(updated).colorChallengeCompleted).toBe(true);
+        expect(sanitizeUser(updated).subObjectiveCompleted).toBe(true);
+
+        setColorChallengeCompleted(alice.id, false);
+        expect(sanitizeUser(findUserById(alice.id)!).colorChallengeCompleted).toBe(false);
+    });
+});
+
+describe('setIsAdmin', () => {
+    // The "never your own account" rule is enforced one layer up, in the
+    // POST /api/admin/users/:userId/admin route (see its own doc comment) -- this function
+    // itself just flips the column, so that's what's tested here.
+    it('round-trips through sanitizeUser', async () => {
+        const alice = await makeUser();
+        expect(sanitizeUser(alice).isAdmin).toBe(false);
+
+        setIsAdmin(alice.id, true);
+        expect(sanitizeUser(findUserById(alice.id)!).isAdmin).toBe(true);
+
+        setIsAdmin(alice.id, false);
+        expect(sanitizeUser(findUserById(alice.id)!).isAdmin).toBe(false);
     });
 });

@@ -4,7 +4,7 @@ import { Supercard } from '../card';
 import { useAuth } from '../auth/AuthContext';
 import { useCollectedSupercardNumbers } from '../data/ownership';
 import { extractError } from '../lib/api';
-import { CollectCandidatesJson, PublicUserJson } from '../types';
+import { CollectCandidatesJson, CollectResponseJson, PendingResearchPrompt, PublicUserJson } from '../types';
 import CardArt from './CardArt';
 import TradeAttributionModal from './TradeAttributionModal';
 
@@ -77,9 +77,9 @@ export default function CollectFlow({ supercard, uniqueId, onDone }: CollectFlow
     }, [loadCandidates]);
 
     const finish = useCallback(
-        (toast: string) => {
+        (toast: string, prompt?: PendingResearchPrompt) => {
             onDone?.();
-            navigate(`/cards/${supercard.highlightId}`, { state: { toast } });
+            navigate(`/cards/${supercard.highlightId}`, { state: { toast, prompt } });
         },
         [onDone, navigate, supercard.highlightId],
     );
@@ -95,8 +95,17 @@ export default function CollectFlow({ supercard, uniqueId, onDone }: CollectFlow
                     body: JSON.stringify({ uniqueId, claimedFromUserId }),
                 });
                 if (!res.ok) throw new Error(await extractError(res));
+                const body: CollectResponseJson = await res.json();
                 await refreshUser();
-                finish(`Added "${supercard.title}" to your collection.`);
+                // The two research prompts are mutually exclusive -- a first-ever scan never
+                // has a previous owner to claim, so the attribution popup (and thus a claim)
+                // never happens on that same event. See PendingResearchPrompt's doc comment.
+                const prompt: PendingResearchPrompt | undefined = body.firstEverScan
+                    ? { type: 'received-from-other', exchangeEventId: body.exchangeEventId }
+                    : claimedFromUserId !== null
+                      ? { type: 'trade-conversation', exchangeEventId: body.exchangeEventId }
+                      : undefined;
+                finish(`Added "${supercard.title}" to your collection.`, prompt);
             } catch (err) {
                 setState({
                     status: 'action-error',

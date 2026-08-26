@@ -123,7 +123,13 @@
       "Bash(DB_PATH=/private/tmp/claude-501/-Users-riceelijah-Desktop-dev-other-campus-trade/ed1fd28b-4cfa-4d9b-a38e-05cf8783e8bc/scratchpad/import-test.db PORT=3911 npx tsx server/index.ts)",
       "Bash(echo \"started pid $!\")",
       "Bash(kill %1)",
-      "Bash(grep -n \"handleRevoke\\(instance.cardInstanceId\\)\\\\|Revoke$\\\\|admin-instance-chip\" src/pages/AdminPage.tsx)"
+      "Bash(grep -n \"handleRevoke\\(instance.cardInstanceId\\)\\\\|Revoke$\\\\|admin-instance-chip\" src/pages/AdminPage.tsx)",
+      "Bash(npm test *)",
+      "Bash(DB_PATH=/private/tmp/claude-501/-Users-riceelijah-Desktop-dev-other-campus-trade/6cf4d8a0-5fd7-4da5-b368-3cd6cbf756fc/scratchpad/migration-test.db npx tsx -e ' *)",
+      "Bash(rm -f /private/tmp/claude-501/-Users-riceelijah-Desktop-dev-other-campus-trade/6cf4d8a0-5fd7-4da5-b368-3cd6cbf756fc/scratchpad/migration-test.db*)",
+      "Bash(grep -n \"^h1\\\\b\\\\|^h1,\\\\|margin.*h1\\\\| h1 {\" /Users/riceelijah/Desktop/dev/other/campus_trade/src/index.css)",
+      "Bash(grep -n \"^                \\)}\\\\|</ul>\\\\|admin-layout\\\\|</div>$\" /Users/riceelijah/Desktop/dev/other/campus_trade/src/pages/AdminPage.tsx)",
+      "Bash(grep -n \"^            </div>$\\\\|^        </div>$\" /Users/riceelijah/Desktop/dev/other/campus_trade/src/pages/AdminPage.tsx)"
     ],
     "additionalDirectories": [
       "/Users/riceelijah/Desktop/dev/other/campus_trade/server"

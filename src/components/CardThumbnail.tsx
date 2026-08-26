@@ -5,6 +5,9 @@ import CardArt from './CardArt';
 
 interface CardThumbnailProps {
     supercard: Supercard;
+    /** When given (see the Hand view's per-copy tiles in CollectionPage), links to that
+     *  specific copy's own custody chain via `?instance=` instead of the plain design page. */
+    uniqueId?: string;
     /** Defaults to 'collected' -- see CardArt. */
     visibility?: CardVisibility;
 }
@@ -14,7 +17,7 @@ interface CardThumbnailProps {
  * seen at all yet, in which case there's nothing to navigate to and it renders as a plain,
  * non-interactive block instead.
  */
-export default function CardThumbnail({ supercard, visibility = 'collected' }: CardThumbnailProps) {
+export default function CardThumbnail({ supercard, uniqueId, visibility = 'collected' }: CardThumbnailProps) {
     const content = (
         <>
             <CardArt supercard={supercard} visibility={visibility} />
@@ -30,8 +33,12 @@ export default function CardThumbnail({ supercard, visibility = 'collected' }: C
         );
     }
 
+    const href = uniqueId
+        ? `/cards/${supercard.highlightId}?instance=${encodeURIComponent(uniqueId)}`
+        : `/cards/${supercard.highlightId}`;
+
     return (
-        <Link to={`/cards/${supercard.highlightId}`} className="card-thumbnail">
+        <Link to={href} className="card-thumbnail">
             {content}
         </Link>
     );

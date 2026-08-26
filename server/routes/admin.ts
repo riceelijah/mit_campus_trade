@@ -9,7 +9,7 @@ import {
     cardInstancesCollectedBy,
     grantCardInstance,
     NoAvailableCopiesError,
-    insertCustodyEvent,
+    insertExchangeEvent,
     returnCardInstance,
     revokeCardInstanceFromUser,
     clearCardInstanceHistory,
@@ -20,12 +20,24 @@ import {
     seenSupercardNumbersFor,
     listVerifiedTrades,
     setSetting,
+    setColorChallengeCompleted,
+    setSubObjectiveCompleted,
+    setIsAdmin,
+    listExchangeEvents,
+    findExchangeEventById,
+    UserRow,
 } from '../db';
-import { sanitizeUser, serializeCardInstance } from '../serialize';
+import { sanitizeUser, serializeCardInstance, sanitizeExchangeEvent } from '../serialize';
 import { SUPERCARDS, getSupercard } from '../../src/data/supercards';
 import { Supercard } from '../../src/card';
 import { SETTING_KEYS } from '../../src/settings';
-import { VALID_COLORS, FlagColor, AdminUserCardsJson, VerifiedTradeJson } from '../../src/types';
+import {
+    VALID_COLORS,
+    FlagColor,
+    AdminUserCardsJson,
+    VerifiedTradeJson,
+    ExchangeEventJson,
+} from '../../src/types';
 
 export const adminRouter = Router();
 
@@ -122,7 +134,7 @@ adminRouter.post('/card-instances/:cardInstanceId/transfer', (req, res) => {
         return;
     }
 
-    insertCustodyEvent(cardInstanceId, newOwnerUserId);
+    insertExchangeEvent(cardInstanceId, newOwnerUserId, null, null);
     res.status(200).json({ card: serializeCardInstance(instance) });
 });
 
@@ -203,6 +215,70 @@ adminRouter.post('/users/:userId/seen', (req, res) => {
 
     markSupercardSeen(userId, supercardN);
     res.status(200).json({ supercardN });
+});
+
+// Manually marks/unmarks a player as having finished the color challenge -- see
+// setColorChallengeCompleted's doc comment. Shown as a badge in the users table and on the
+// player's own Collection page.
+adminRouter.post('/users/:userId/color-challenge', (req, res) => {
+    const userId = parseId(req.params.userId);
+    const { value } = req.body ?? {};
+
+    if (userId === undefined || !findUserById(userId)) {
+        res.status(404).json({ error: 'No such user' });
+        return;
+    }
+    if (typeof value !== 'boolean') {
+        res.status(400).json({ error: 'value must be a boolean' });
+        return;
+    }
+
+    setColorChallengeCompleted(userId, value);
+    res.status(200).json({ colorChallengeCompleted: value });
+});
+
+// Same as /color-challenge, for the sub-objective.
+adminRouter.post('/users/:userId/sub-objective', (req, res) => {
+    const userId = parseId(req.params.userId);
+    const { value } = req.body ?? {};
+
+    if (userId === undefined || !findUserById(userId)) {
+        res.status(404).json({ error: 'No such user' });
+        return;
+    }
+    if (typeof value !== 'boolean') {
+        res.status(400).json({ error: 'value must be a boolean' });
+        return;
+    }
+
+    setSubObjectiveCompleted(userId, value);
+    res.status(200).json({ subObjectiveCompleted: value });
+});
+
+// Grants or revokes admin privileges for another user -- never the caller's own account. That
+// restriction is enforced here, not just as a client-side confirm/disabled-checkbox in
+// AdminPage, so it holds even against a direct API call: the real security boundary is this
+// route, same as requireAdmin's doc comment says for admin access generally.
+adminRouter.post('/users/:userId/admin', (req, res) => {
+    const userId = parseId(req.params.userId);
+    const { value } = req.body ?? {};
+    const currentAdmin = res.locals.user as UserRow;
+
+    if (userId === undefined || !findUserById(userId)) {
+        res.status(404).json({ error: 'No such user' });
+        return;
+    }
+    if (typeof value !== 'boolean') {
+        res.status(400).json({ error: 'value must be a boolean' });
+        return;
+    }
+    if (userId === currentAdmin.id) {
+        res.status(400).json({ error: 'You cannot change your own admin status' });
+        return;
+    }
+
+    setIsAdmin(userId, value);
+    res.status(200).json({ isAdmin: value });
 });
 
 adminRouter.delete('/users/:userId/seen/:supercardN', (req, res) => {
@@ -335,26 +411,40 @@ adminRouter.post('/users/:userId/bulk-unsee', (req, res) => {
 
 // Read-only listing of every verified two-way trade the system has detected (see
 // server/db.ts's tryFormVerifiedTrade) -- mainly so the new verified_trades table is actually
-// inspectable rather than write-only.
+// inspectable rather than write-only. Each side's own conversation-notes research answer (see
+// exchange_events' schema comment) is looked up via its own exchange event id, so clicking a
+// trade in the admin UI can show both without a second round-trip.
 adminRouter.get('/verified-trades', (_req, res) => {
+    // Username isn't one of verified_trades' own denormalized columns (it has name/email, per
+    // the research-readable spec those came from) -- a quick id lookup here is simpler than
+    // adding a fourth per-side column just for this one admin-table display.
     const trades: VerifiedTradeJson[] = listVerifiedTrades().map((t) => ({
-        id: t.id,
-        userX: { id: t.user_x_id, username: t.user_x_username, name: t.user_x_name },
-        cardA: {
-            cardInstanceId: t.card_instance_a_id,
-            uniqueId: t.card_a_unique_id ?? '',
-            supercardN: t.card_a_supercard_n,
+        tradeId: t.trade_id,
+        userOne: {
+            id: t.user_one_id,
+            username: findUserById(t.user_one_id)?.username ?? '',
+            name: t.user_one_name,
         },
-        datetimeX: t.datetime_x,
-        userY: { id: t.user_y_id, username: t.user_y_username, name: t.user_y_name },
-        cardB: {
-            cardInstanceId: t.card_instance_b_id,
-            uniqueId: t.card_b_unique_id ?? '',
-            supercardN: t.card_b_supercard_n,
+        cardGivenByUserOneUniqueId: t.card_given_by_user_one_unique_id,
+        userOneTradeTime: t.user_one_trade_time,
+        userOneConversationNotes: findExchangeEventById(t.exchange_event_one_id)?.conversation_notes ?? null,
+        userTwo: {
+            id: t.user_two_id,
+            username: findUserById(t.user_two_id)?.username ?? '',
+            name: t.user_two_name,
         },
-        datetimeY: t.datetime_y,
+        cardGivenByUserTwoUniqueId: t.card_given_by_user_two_unique_id,
+        userTwoTradeTime: t.user_two_trade_time,
+        userTwoConversationNotes: findExchangeEventById(t.exchange_event_two_id)?.conversation_notes ?? null,
     }));
     res.status(200).json({ trades });
+});
+
+// Read-only listing of every card-obtained event, not just verified trades -- see
+// listExchangeEvents's doc comment.
+adminRouter.get('/exchange-events', (_req, res) => {
+    const events: ExchangeEventJson[] = listExchangeEvents().map(sanitizeExchangeEvent);
+    res.status(200).json({ events });
 });
 
 adminRouter.post('/settings/collection-requires-login', (req, res) => {

@@ -61,6 +61,8 @@ function userFromJson(
         owned,
         seen,
         json.collectionViewMode,
+        json.colorChallengeCompleted,
+        json.subObjectiveCompleted,
     );
 }
 
