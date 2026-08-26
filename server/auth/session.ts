@@ -17,12 +17,7 @@ if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
     );
 }
 
-// `||`, not `??` -- same reasoning as ADMIN_EMAIL in routes/auth.ts: a blank-but-set
-// SESSION_SECRET ('', e.g. from a deploy that copies .env.example's `SESSION_SECRET=` as-is)
-// is non-nullish, so `??` would leave sessions signed with an empty secret whenever the guard
-// above doesn't also catch it (i.e. NODE_ENV isn't 'production') -- forgeable session cookies
-// for any user, admin included.
-export const SESSION_SECRET = process.env.SESSION_SECRET || DEV_ONLY_SESSION_SECRET;
+export const SESSION_SECRET = process.env.SESSION_SECRET ?? DEV_ONLY_SESSION_SECRET;
 
 const SESSION_COOKIE = 'campus_trade_session';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
