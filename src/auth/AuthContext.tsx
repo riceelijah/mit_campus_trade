@@ -100,11 +100,21 @@ async function loadFullUser(json: PublicUserJson): Promise<User> {
         return bareUser; // still a valid User -- empty collected/owned/seen, not "no user"
     }
     const body: MyCardsJson = await res.json();
-    const collected = cardsFromJson(body.collected);
-    const owned = collected.filter((card) => card.currentOwner?.equals(bareUser) ?? false);
     const seen = new Set(body.seen);
-
-    return userFromJson(json, collected, owned, seen);
+    try {
+        const collected = cardsFromJson(body.collected);
+        const owned = collected.filter((card) => card.currentOwner?.equals(bareUser) ?? false);
+        return userFromJson(json, collected, owned, seen);
+    } catch (err) {
+        // cardsFromJson replays server data through Card.transferTo(), which throws if it's
+        // ever handed a corrupted custody chain (see revokeCardInstanceFromUser's doc comment
+        // in server/db.ts for the one known way that could happen, now guarded against there
+        // too). Degrade to an empty collection rather than let that take down this student's
+        // entire login/session-load -- losing their card list is recoverable (an admin fixes
+        // the data, they refresh); being stuck on an infinite spinner is not.
+        console.error('Failed to rebuild card collection from server data:', err);
+        return userFromJson(json, [], [], seen);
+    }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

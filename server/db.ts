@@ -656,6 +656,21 @@ const stmts = {
         UPDATE exchange_events SET given_card_exchange_id = NULL
         WHERE given_card_exchange_id IN (SELECT exchange_id FROM exchange_events WHERE card_instance_id = ?)
     `),
+    // Same FK-ordering reason as deleteVerifiedTradesForInstance below, scoped down to just
+    // this user's own events on this instance -- a verified_trades row referencing one of them
+    // documents a trade this user was themselves part of (as the giver or receiver of this
+    // exact card), so it can't survive that event being erased; revokeCardInstanceFromUser
+    // would otherwise hit the same FK violation deleteExchangeEventsForUserOnInstance guards
+    // against for given_card_exchange_id, just via verified_trades instead.
+    deleteVerifiedTradesForUserOnInstance: db.prepare(`
+        DELETE FROM verified_trades
+        WHERE exchange_event_one_id IN (
+            SELECT exchange_id FROM exchange_events WHERE card_instance_id = ? AND user_id = ?
+        )
+           OR exchange_event_two_id IN (
+            SELECT exchange_id FROM exchange_events WHERE card_instance_id = ? AND user_id = ?
+        )
+    `),
     deleteExchangeEventsForUserOnInstance: db.prepare(
         'DELETE FROM exchange_events WHERE card_instance_id = ? AND user_id = ?',
     ),
@@ -1128,12 +1143,39 @@ export function unmarkSupercardSeen(userId: number, supercardN: number): void {
  * out again) -- unlike the old on-scan-manufacture model, the instance row itself is never
  * deleted, since it corresponds to a real pre-generated physical copy (see
  * scripts/import-card-copies.ts) that still exists whether or not anyone currently holds it.
+ * Also deletes any verified_trades row built from one of the erased events -- it necessarily
+ * documented a trade `userId` was themselves part of (as this exact card's giver or receiver),
+ * so it can't survive that event being gone; skipping this would otherwise hit a FOREIGN KEY
+ * constraint failure partway through, on any card that happens to have formed a verified trade.
+ *
+ * Refuses (throwing, rolling back, changing nothing) if `userId` isn't at one of the two ends
+ * of the instance's history -- i.e. they traded it away and later got it back (A -> B -> A).
+ * Erasing just their turn in the middle would leave two directly-adjacent surviving events
+ * with the *same* owner, which Card's data model (src/card.ts's checkRep) forbids outright.
+ * That's not merely a display glitch: the client rebuilds this exact history through
+ * Card.transferTo() every time the affected student's session loads (see
+ * AuthContext.cardsFromJson), and an invalid chain throws there -- far from this tool, and
+ * with no student-facing recovery. Catching it here, where it can be reported as a clean,
+ * actionable error, is much cheaper than that.
  */
 export function revokeCardInstanceFromUser(userId: number, cardInstanceId: number): void {
     db.exec('BEGIN');
     try {
+        stmts.deleteVerifiedTradesForUserOnInstance.run(cardInstanceId, userId, cardInstanceId, userId);
         stmts.clearGivenCardExchangeIdReferencingUserOnInstance.run(cardInstanceId, userId);
         stmts.deleteExchangeEventsForUserOnInstance.run(cardInstanceId, userId);
+
+        const remaining = stmts.custodyForCardInstance.all(cardInstanceId) as { user_id: number }[];
+        for (let i = 1; i < remaining.length; i++) {
+            if (remaining[i].user_id === remaining[i - 1].user_id) {
+                throw new Error(
+                    "Can't revoke -- this student traded the card away and later got it back, so " +
+                        'removing just their turn would leave two identical owners in a row in its ' +
+                        'history. Use "Reset" on the card instead to wipe its whole history.',
+                );
+            }
+        }
+
         db.exec('COMMIT');
     } catch (err) {
         db.exec('ROLLBACK');

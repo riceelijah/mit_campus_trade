@@ -72,6 +72,13 @@ describe('parseCardUrl', () => {
         });
     });
 
+    it('upcases a lowercase unique_id (e.g. a hand-typed/pasted URL)', () => {
+        expect(parseCardUrl('mitcampustrade.com/cards/5357532/aark')).toEqual({
+            highlightId: '5357532',
+            uniqueId: 'AARK',
+        });
+    });
+
     it('returns undefined for an unrelated string', () => {
         expect(parseCardUrl('not a card link at all')).toBeUndefined();
     });

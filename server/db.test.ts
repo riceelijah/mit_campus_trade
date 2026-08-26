@@ -232,6 +232,53 @@ describe('revokeCardInstanceFromUser', () => {
         revokeCardInstanceFromUser(alice.id, instance.id);
         expect(findAvailableInstance(1)?.id).toBe(instance.id);
     });
+
+    it('throws, and leaves history untouched, when revoking would leave two identical owners in a row', async () => {
+        const alice = await makeUser();
+        const bob = await makeUser();
+        const instance = makeInstance(1);
+        // Alice -> Bob -> Alice: a completely normal "traded it away and got it back" pattern.
+        collectCardInstance(instance.unique_id!, alice.id, null);
+        collectCardInstance(instance.unique_id!, bob.id, alice.id);
+        collectCardInstance(instance.unique_id!, alice.id, bob.id);
+
+        expect(() => revokeCardInstanceFromUser(bob.id, instance.id)).toThrow(/two identical owners/);
+        // Refused, not partially applied -- the transaction actually rolled back.
+        expect(currentOwnerOfCardInstance(instance.id)).toBe(alice.id);
+    });
+
+    it('deletes a verified trade built from the revoked event instead of hitting a FK error', async () => {
+        const alice = await makeUser();
+        const bob = await makeUser();
+        const cardA = makeInstance(1);
+        const cardB = makeInstance(2);
+        collectCardInstance(cardA.unique_id!, alice.id, null);
+        collectCardInstance(cardB.unique_id!, bob.id, null);
+        collectCardInstance(cardA.unique_id!, bob.id, alice.id);
+        collectCardInstance(cardB.unique_id!, alice.id, bob.id);
+        expect(listVerifiedTrades()).toHaveLength(1);
+
+        // Revoking bob's hold of cardA erases the exchange event the verified trade above
+        // references -- without cleanup, this throws a raw FOREIGN KEY constraint error.
+        expect(() => revokeCardInstanceFromUser(bob.id, cardA.id)).not.toThrow();
+        expect(listVerifiedTrades()).toHaveLength(0);
+        // cardB's own history (and alice's ownership of it) is untouched.
+        expect(currentOwnerOfCardInstance(cardB.id)).toBe(alice.id);
+    });
+
+    it('allows revoking a middle turn when its neighbors are two different owners', async () => {
+        const alice = await makeUser();
+        const bob = await makeUser();
+        const carol = await makeUser();
+        const instance = makeInstance(1);
+        // Alice -> Bob -> Carol: revoking Bob leaves Alice, Carol adjacent -- still valid.
+        collectCardInstance(instance.unique_id!, alice.id, null);
+        collectCardInstance(instance.unique_id!, bob.id, alice.id);
+        collectCardInstance(instance.unique_id!, carol.id, bob.id);
+
+        expect(() => revokeCardInstanceFromUser(bob.id, instance.id)).not.toThrow();
+        expect(currentOwnerOfCardInstance(instance.id)).toBe(carol.id);
+    });
 });
 
 describe('clearCardInstanceHistory', () => {
