@@ -1,5 +1,0 @@
-dist
-node_modules
-src/data/supercards.json
-package-lock.json
-.claude/

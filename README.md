@@ -14,15 +14,45 @@
 
 - This is the website on which campus trade will be hosted, matching with the physical trading card game happening at the same time
 
-## Development setup
+## Deploying this branch
 
-1. `npm install`
-2. Copy `.env.example` to `.env` and fill in a `SESSION_SECRET` (see the comment in
-   `.env.example` for how to generate one). Not required for local dev -- an insecure
-   default is used if unset -- but required before any production deploy.
-3. `npm run dev` runs the Vite dev server and the Express API concurrently.
-4. `npm run build` type-checks and produces a production frontend build in `dist/`.
-5. `npm run lint` / `npm run format` / `npm run test` run the linter, formatter, and test suite.
+This branch (`deploy-clean`) is the `main` branch with local-dev-only tooling stripped out
+(tests, lint/format configs and their dependencies) -- everything here is what's actually
+needed to build and run the site. For day-to-day development, use `main` instead.
+
+The site is two separate pieces to deploy:
+
+1. **The frontend** -- a static site. `npm run build` produces it in `dist/`; host that
+   directory anywhere that serves static files (a CDN, object storage, Nginx, etc.). Nothing
+   in this repo serves it itself -- the Express server below is API-only.
+2. **The API server** -- a long-running Node process with its own persistent disk (the SQLite
+   database lives in a file next to `server/index.ts`, not in memory). `npm start` runs it.
+
+Whatever serves the frontend needs to proxy or redirect requests under `/api/` to wherever the
+API server ends up running (see `vite.config.ts`'s dev proxy for the equivalent local-dev
+setup) -- the two aren't wired together automatically outside of local development.
+
+### First-time setup
+
+1. `npm ci` -- installs from the committed lockfile (reproducible; prefer this over
+   `npm install` for a deploy).
+2. Copy `.env.example` to `.env` (or set the equivalent real environment variables on your
+   host) and fill in `SESSION_SECRET` -- see the comment in `.env.example` for how to generate
+   one. **Required** before any real deploy; the server refuses to start in production without
+   it.
+3. If this is a brand-new database, seed the pool of physical card copies once via
+   `npx tsx scripts/import-card-copies.ts` (reads `data/card_copies_master.csv`) --
+   **destructive** (wipes any existing card ownership/history first), so only run it against a
+   fresh database; see that script's own doc comment for details. `src/data/supercards.json`
+   (the card *designs*, as opposed to individual printed copies) is already checked in and
+   regenerated only if `data/master-content-sheet.csv` changes, via `npm run generate:data`.
+4. `npm run build` to produce the frontend in `dist/`.
+5. `npm start` to run the API server.
+
+**Webfont files are not in this repo** (`public/font` is gitignored -- they're licensed and
+not ours to redistribute in git). Without them the site falls back to the next font in the
+CSS stack rather than failing, but for a pixel-accurate deploy, copy `public/font/*` onto
+your target separately (alongside the rest of `public/`).
 
 ### Environment variables
 
