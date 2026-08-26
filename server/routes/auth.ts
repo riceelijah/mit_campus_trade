@@ -21,7 +21,11 @@ import {
 } from '../db';
 import { sanitizeUser } from '../serialize';
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.toLowerCase() ?? 'ejrice@mit.edu';
+// `||`, not `??` -- an unset ADMIN_EMAIL is undefined and should fall back to the default
+// below, but a *blank* one (e.g. a deploy that copies .env.example's `ADMIN_EMAIL=` verbatim
+// without filling it in) comes through as '', which is non-nullish and would otherwise defeat
+// the fallback, leaving no email able to match and nobody ever auto-admin'd.
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.toLowerCase() || 'ejrice@mit.edu';
 
 export const authRouter = Router();
 
