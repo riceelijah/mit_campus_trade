@@ -1426,6 +1426,37 @@ a {
     width: 140px;
 }
 
+.qr-modal__manual {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #eee;
+}
+
+.qr-modal__manual-label {
+    display: block;
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 6px;
+}
+
+.qr-modal__manual-row {
+    display: flex;
+    gap: 8px;
+}
+
+.qr-modal__manual-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.qr-modal__manual-row button {
+    flex-shrink: 0;
+}
+
 /* --- card instance page (visiting a specific copy's own URL) --- */
 
 /* Hosts the same CollectFlow content as the QR scanner modal (see .qr-modal__message above),

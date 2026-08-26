@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import jsQR from 'jsqr';
 import { Supercard } from '../card';
 import { useAuth } from '../auth/AuthContext';
-import { getSupercardByHighlightId } from '../data/supercards';
-import { parseCardUrl } from '../lib/qr';
+import { getSupercard, getSupercardByHighlightId } from '../data/supercards';
+import { parseCardUrl, parsePrintedCardId, UNIQUE_ID_RE } from '../lib/qr';
 import { extractError } from '../lib/api';
+import { ResolveCardJson } from '../types';
 import CardArt from './CardArt';
 import CollectFlow from './CollectFlow';
 
@@ -13,6 +14,10 @@ type ScannerState =
     | { status: 'requesting-camera' }
     | { status: 'scanning' }
     | { status: 'camera-error'; message: string }
+    // A manually-entered bare short ID (no supercard number attached) is looking itself up
+    // server-side -- see handleManualSubmit. Every other manual-entry shape (a full URL, or
+    // the "01-AARK" printed form) resolves synchronously and never passes through this state.
+    | { status: 'resolving-manual' }
     | { status: 'not-found' }
     // A general card link/QR with no unique_id -- can't identify a specific physical copy, so
     // the only options are to view it or mark it seen; there's no "Register to my account".
@@ -31,18 +36,21 @@ interface QrScannerModalProps {
 
 /**
  * A camera-driven QR scanner, opened from the nav bar. Decodes a card's printed QR code -- a
- * URL of the form mitcampustrade.com/cards/{highlightId} (a card *design*, no specific copy
- * identifiable -- view/seen only) or mitcampustrade.com/cards/{highlightId}/{uniqueId} (one
- * specific physical copy -- can be collected, see CollectFlow). If signed out, "Just looking"
- * is an ephemeral, unsaved peek (there's no account to attach it to), alongside links to log
- * in/register. Either way, "Just looking" closes the scanner and takes the viewer straight to
- * the card's own page, handing off a confirmation message for it to show as a pop-up (see
- * Toast/CardDetailPage) rather than showing that message here in the modal.
+ * URL of the form <any-host>/cards/{highlightId} (a card *design*, no specific copy
+ * identifiable -- view/seen only) or <any-host>/cards/{highlightId}/{uniqueId} (one specific
+ * physical copy -- can be collected, see CollectFlow); see parseCardUrl for why the host is
+ * deliberately never checked. A manual-entry fallback (see handleManualSubmit) covers a broken
+ * or permission-denied camera, accepting the same identifiers by hand. If signed out, "Just
+ * looking" is an ephemeral, unsaved peek (there's no account to attach it to), alongside links
+ * to log in/register. Either way, "Just looking" closes the scanner and takes the viewer
+ * straight to the card's own page, handing off a confirmation message for it to show as a
+ * pop-up (see Toast/CardDetailPage) rather than showing that message here in the modal.
  */
 export default function QrScannerModal({ onClose }: QrScannerModalProps) {
     const { user, refreshUser } = useAuth();
     const navigate = useNavigate();
     const [state, setState] = useState<ScannerState>({ status: 'requesting-camera' });
+    const [manualValue, setManualValue] = useState('');
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -97,17 +105,17 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
         [refreshUser, goToCardWithToast],
     );
 
-    const handleDecoded = useCallback(
-        (raw: string) => {
-            stopCamera();
-            const parsed = parseCardUrl(raw);
-            const supercard = parsed ? getSupercardByHighlightId(parsed.highlightId) : undefined;
-            if (!parsed || !supercard) {
+    // Shared by every way of identifying a card -- camera decode and all three manual-entry
+    // shapes alike -- so each entry point only has to work out (supercard, uniqueId) and hand
+    // off here for the same not-found/collect-flow/not-logged-in/view-only branching.
+    const resolveSupercard = useCallback(
+        (supercard: Supercard | undefined, uniqueId?: string) => {
+            if (!supercard) {
                 setState({ status: 'not-found' });
                 return;
             }
-            if (parsed.uniqueId) {
-                setState({ status: 'collect-flow', supercard, uniqueId: parsed.uniqueId });
+            if (uniqueId) {
+                setState({ status: 'collect-flow', supercard, uniqueId });
                 return;
             }
             if (!user) {
@@ -116,7 +124,66 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
             }
             setState({ status: 'view-only', supercard });
         },
-        [stopCamera, user],
+        [user],
+    );
+
+    const handleDecoded = useCallback(
+        (raw: string) => {
+            stopCamera();
+            const parsed = parseCardUrl(raw);
+            resolveSupercard(parsed ? getSupercardByHighlightId(parsed.highlightId) : undefined, parsed?.uniqueId);
+        },
+        [stopCamera, resolveSupercard],
+    );
+
+    // Manual-entry fallback for when the camera can't be used. Accepts whatever's fastest to
+    // type from what's printed on the card: the full scanned URL/code, the short "01-AARK"
+    // form next to the QR code, or -- if that supercard number isn't handy -- the bare 4-char
+    // unique_id alone, which needs a round trip since nothing client-side maps a bare unique_id
+    // back to its design (see GET /api/cards/:uniqueId in server/routes/cards.ts).
+    const handleManualSubmit = useCallback(
+        async (e: FormEvent) => {
+            e.preventDefault();
+            const trimmed = manualValue.trim();
+            if (!trimmed) return;
+
+            const urlParsed = parseCardUrl(trimmed);
+            if (urlParsed) {
+                stopCamera();
+                resolveSupercard(getSupercardByHighlightId(urlParsed.highlightId), urlParsed.uniqueId);
+                return;
+            }
+
+            const printedParsed = parsePrintedCardId(trimmed);
+            if (printedParsed) {
+                stopCamera();
+                resolveSupercard(getSupercard(printedParsed.n), printedParsed.uniqueId);
+                return;
+            }
+
+            if (!UNIQUE_ID_RE.test(trimmed)) {
+                stopCamera();
+                setState({ status: 'not-found' });
+                return;
+            }
+
+            stopCamera();
+            const uniqueId = trimmed.toUpperCase();
+            setState({ status: 'resolving-manual' });
+            try {
+                const res = await fetch(`/api/cards/${encodeURIComponent(uniqueId)}`, { credentials: 'include' });
+                if (res.status === 404) {
+                    setState({ status: 'not-found' });
+                    return;
+                }
+                if (!res.ok) throw new Error(await extractError(res));
+                const body: ResolveCardJson = await res.json();
+                resolveSupercard(getSupercardByHighlightId(body.highlightId), uniqueId);
+            } catch {
+                setState({ status: 'not-found' });
+            }
+        },
+        [manualValue, stopCamera, resolveSupercard],
     );
 
     const startDecodeLoop = useCallback(() => {
@@ -192,7 +259,15 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
         };
     }, [state.status, startDecodeLoop]);
 
-    const scanAgain = () => setState({ status: 'requesting-camera' });
+    const scanAgain = () => {
+        setManualValue('');
+        setState({ status: 'requesting-camera' });
+    };
+
+    // The manual-entry fallback stays available through the live-scanning states and after a
+    // camera failure alike -- covers both "the camera's broken" and "I'd rather just type it".
+    const showManualEntry =
+        state.status === 'requesting-camera' || state.status === 'scanning' || state.status === 'camera-error';
 
     return (
         <div className="qr-modal__backdrop" onClick={onClose}>
@@ -221,6 +296,30 @@ export default function QrScannerModal({ onClose }: QrScannerModalProps) {
                             Try again
                         </button>
                     </div>
+                )}
+
+                {showManualEntry && (
+                    <form className="qr-modal__manual" onSubmit={handleManualSubmit}>
+                        <label htmlFor="qr-modal-manual-input" className="qr-modal__manual-label">
+                            Camera not working? Enter the card&rsquo;s ID instead
+                        </label>
+                        <div className="qr-modal__manual-row">
+                            <input
+                                id="qr-modal-manual-input"
+                                type="text"
+                                placeholder="e.g. 01-ABCD"
+                                value={manualValue}
+                                onChange={(e) => setManualValue(e.target.value)}
+                            />
+                            <button type="submit" disabled={manualValue.trim().length === 0}>
+                                Go
+                            </button>
+                        </div>
+                    </form>
+                )}
+
+                {state.status === 'resolving-manual' && (
+                    <p className="qr-modal__message">Looking up card&hellip;</p>
                 )}
 
                 {state.status === 'not-found' && (

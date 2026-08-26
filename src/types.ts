@@ -121,6 +121,15 @@ export interface CollectCandidatesJson {
     candidates: PublicUserJson[];
 }
 
+/** The shape returned by GET /api/cards/:uniqueId -- resolves a bare unique_id (as typed by
+ *  hand into the QR scanner's manual-entry fallback, with no supercard number attached) to the
+ *  card design it belongs to, so the client can proceed exactly as if that instance had been
+ *  scanned. Unauthenticated: this reveals no more than scanning the QR code itself already
+ *  would to a logged-out viewer. */
+export interface ResolveCardJson {
+    highlightId: string;
+}
+
 /** One row of GET /api/admin/verified-trades -- a two-way trade the system detected by
  *  matching up correctly-attributed exchange events on both sides (see server/db.ts's
  *  tryFormVerifiedTrade). Card identities are always the 4-character alphanumeric unique_id
