@@ -3,4 +3,28 @@ dist
 *.local
 server/*.db*
 .env
-public/font
+
+# Only the woff2/woff files index.css's @font-face rules actually load are tracked below --
+# the vendor's full delivery also includes .eot/.ttf for every weight, an entirely unused
+# "Book" weight, a demo page, and the vendor's own stylesheet.css, none of which this app uses.
+public/font/*
+!public/font/MessinaSans-Light.woff2
+!public/font/MessinaSans-Light.woff
+!public/font/MessinaSans-LightItalic.woff2
+!public/font/MessinaSans-LightItalic.woff
+!public/font/MessinaSans-Regular.woff2
+!public/font/MessinaSans-Regular.woff
+!public/font/MessinaSans-RegularItalic.woff2
+!public/font/MessinaSans-RegularItalic.woff
+!public/font/MessinaSans-SemiBold.woff2
+!public/font/MessinaSans-SemiBold.woff
+!public/font/MessinaSans-SemiBoldItalic.woff2
+!public/font/MessinaSans-SemiBoldItalic.woff
+!public/font/MessinaSans-Bold.woff2
+!public/font/MessinaSans-Bold.woff
+!public/font/MessinaSans-BoldItalic.woff2
+!public/font/MessinaSans-BoldItalic.woff
+!public/font/MessinaSans-Black.woff2
+!public/font/MessinaSans-Black.woff
+!public/font/MessinaSans-BlackItalic.woff2
+!public/font/MessinaSans-BlackItalic.woff

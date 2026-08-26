@@ -49,10 +49,9 @@ setup) -- the two aren't wired together automatically outside of local developme
 4. `npm run build` to produce the frontend in `dist/`.
 5. `npm start` to run the API server.
 
-**Webfont files are not in this repo** (`public/font` is gitignored -- they're licensed and
-not ours to redistribute in git). Without them the site falls back to the next font in the
-CSS stack rather than failing, but for a pixel-accurate deploy, copy `public/font/*` onto
-your target separately (alongside the rest of `public/`).
+The Messina Sans webfont files are checked in under `public/font/` (only the weights/formats
+`src/index.css`'s `@font-face` rules actually load -- see `.gitignore`'s comment there for
+which ones, and why the rest of the vendor's delivery isn't tracked).
 
 ### Environment variables
 
