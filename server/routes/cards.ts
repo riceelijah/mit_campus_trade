@@ -8,11 +8,29 @@ import {
     UserRow,
 } from '../db';
 import { sanitizeUser } from '../serialize';
-import { CollectCandidatesJson } from '../../src/types';
+import { getSupercard } from '../../src/data/supercards';
+import { CollectCandidatesJson, ResolveCardJson } from '../../src/types';
 
 export const cardsRouter = Router();
 
 const RANDOM_OTHER_COUNT = 3;
+
+// Resolves a bare unique_id (no supercard number attached) to the card design it belongs to --
+// powers the QR scanner's "enter ID manually" fallback when a student types in just the short
+// code and not the full "01-AARK" printed form (the latter carries its own supercard number
+// and never needs this, see parsePrintedCardId). No auth required: which design a given code
+// belongs to is exactly what the printed QR code/sticker itself already reveals to anyone,
+// logged in or not.
+cardsRouter.get('/:uniqueId', (req, res) => {
+    const uniqueId = Array.isArray(req.params.uniqueId) ? req.params.uniqueId[0] : req.params.uniqueId;
+    const instance = findCardInstanceByUniqueId(uniqueId);
+    const supercard = instance && getSupercard(instance.supercard_n);
+    if (!supercard) {
+        res.status(404).json({ error: 'No such card' });
+        return;
+    }
+    res.status(200).json({ highlightId: supercard.highlightId } satisfies ResolveCardJson);
+});
 
 /** Fisher-Yates shuffle -- used so the previous owner's position in `candidates` carries no
  *  information (see collect-candidates below): if they always landed in the same slot, that
