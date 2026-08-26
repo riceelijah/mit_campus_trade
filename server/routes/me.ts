@@ -7,13 +7,20 @@ import {
     markSupercardSeen,
     seenSupercardNumbersFor,
     updateCollectionViewMode,
+    setExchangeEventReceivedFromOther,
+    setExchangeEventConversationNotes,
     CardInstanceNotFoundError,
     AlreadyOwnedError,
     UserRow,
 } from '../db';
 import { serializeCardInstance } from '../serialize';
 import { getSupercardByHighlightId } from '../../src/data/supercards';
-import { MyCardsJson, CollectionViewMode, VALID_COLLECTION_VIEW_MODES } from '../../src/types';
+import {
+    MyCardsJson,
+    CollectionViewMode,
+    VALID_COLLECTION_VIEW_MODES,
+    CollectResponseJson,
+} from '../../src/types';
 
 export const meRouter = Router();
 
@@ -64,8 +71,17 @@ meRouter.post('/collect', scanLimiter, (req, res) => {
     }
 
     try {
-        const { instance } = collectCardInstance(uniqueId, user.id, claimedFromUserId ?? null);
-        res.status(201).json({ card: serializeCardInstance(instance) });
+        const { instance, exchangeEventId, matchedExpected } = collectCardInstance(
+            uniqueId,
+            user.id,
+            claimedFromUserId ?? null,
+        );
+        const payload: CollectResponseJson = {
+            card: serializeCardInstance(instance),
+            exchangeEventId,
+            firstEverScan: matchedExpected === null,
+        };
+        res.status(201).json(payload);
     } catch (err) {
         if (err instanceof CardInstanceNotFoundError) {
             res.status(404).json({ error: 'Not a valid card' });
@@ -111,4 +127,47 @@ meRouter.post('/collection-view-mode', (req, res) => {
 
     updateCollectionViewMode(user.id, mode);
     res.status(200).json({ collectionViewMode: mode });
+});
+
+// Answers the "did you receive this card from someone else?" banner (PromptBanner, type
+// 'received-from-other') shown right after collecting a card instance no one had claimed
+// before. Rejects with 404 if the exchange event doesn't belong to the caller, so a crafted id
+// can't overwrite someone else's answer.
+meRouter.post('/exchange-events/:exchangeEventId/received-from-other', (req, res) => {
+    const user = res.locals.user as UserRow;
+    const exchangeEventId = Number(req.params.exchangeEventId);
+    const { value } = req.body ?? {};
+
+    if (!Number.isInteger(exchangeEventId) || typeof value !== 'boolean') {
+        res.status(400).json({ error: 'Not a valid answer' });
+        return;
+    }
+
+    const updated = setExchangeEventReceivedFromOther(exchangeEventId, user.id, value);
+    if (!updated) {
+        res.status(404).json({ error: 'Not found' });
+        return;
+    }
+    res.status(200).json({ ok: true });
+});
+
+// Answers the trade-conversation research banner (PromptBanner, type 'trade-conversation')
+// shown after collecting a card instance the collector claimed a specific previous owner for.
+// Same ownership contract as /received-from-other above.
+meRouter.post('/exchange-events/:exchangeEventId/conversation-notes', (req, res) => {
+    const user = res.locals.user as UserRow;
+    const exchangeEventId = Number(req.params.exchangeEventId);
+    const { notes } = req.body ?? {};
+
+    if (!Number.isInteger(exchangeEventId) || typeof notes !== 'string' || notes.length === 0) {
+        res.status(400).json({ error: 'Not a valid answer' });
+        return;
+    }
+
+    const updated = setExchangeEventConversationNotes(exchangeEventId, user.id, notes.trim().slice(0, 1000));
+    if (!updated) {
+        res.status(404).json({ error: 'Not found' });
+        return;
+    }
+    res.status(200).json({ ok: true });
 });

@@ -797,6 +797,34 @@ a {
     background: #ddd;
 }
 
+/* A chip sitting inline right after plain text (a player's name in the admin table) rather
+   than in its own .chip-row -- needs its own left margin since there's no flex gap to space it
+   out here. */
+.chip--inline {
+    margin-left: 6px;
+}
+
+/* Puts the Collection page's achievement badges on the same line as its "Your Collection"
+   heading, pinned to the right. */
+.collection-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+/* Margins don't collapse through a flex container the way they would if the h1 were still a
+   direct child of the page -- zero its top margin (previously collapsed away against the page
+   container anyway) but keep its bottom margin, so spacing before the description paragraph
+   below is unchanged. */
+.collection-title-row h1 {
+    margin-top: 0;
+}
+
+.collection-title-row__badges {
+    margin: 0;
+}
+
 .card-detail__section {
     margin-top: 18px;
 }
@@ -847,6 +875,24 @@ a {
 }
 
 /* --- rules page --- */
+
+/* The "how to trade" example exchange in RulesPage -- a left-border accent rather than the
+   browser's default blockquote indent, matching the site's existing thin-border aesthetic
+   (chips, admin panels, card art). */
+.rules-quote {
+    margin: 0 0 1em;
+    padding-left: 16px;
+    border-left: 3px solid #ddd;
+    color: #444;
+}
+
+.rules-quote p {
+    margin: 0 0 4px;
+}
+
+.rules-quote p:last-child {
+    margin-bottom: 0;
+}
 
 .faq-item {
     margin-bottom: 18px;
@@ -928,23 +974,67 @@ a {
 
 /* --- admin page --- */
 
+/* A plain neutral box around each top-level panel -- purely to visually separate a growing
+   page of panels from each other at a glance, same idea as .admin-danger-zone's tint below but
+   without implying anything's dangerous. */
 .admin-settings {
     margin: 20px 0;
+    padding: 12px 16px;
+    background: #f7f7f7;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
 }
 
 /* Sets the site-wide "clear everything" action apart from every other (per-student or
    per-card) admin control on the page -- a faint red tint, not just the same red button
    everything else already uses for a dangerous action, to signal this one has a much wider
-   blast radius before a click is even made. */
+   blast radius before a click is even made. Layered on top of .admin-settings's neutral box
+   above (same padding/border-radius), just recoloring it. */
 .admin-danger-zone {
-    padding: 12px 16px;
     background: #fdf2f1;
-    border: 1px solid #f3d4d1;
-    border-radius: 8px;
+    border-color: #f3d4d1;
 }
 
-.admin-danger-zone h2 {
+.admin-danger-zone .collapsible-section__title {
     color: #b3261e;
+}
+
+/* --- collapsible section (see CollapsibleSection) --- */
+
+.collapsible-section__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+}
+
+.collapsible-section__title {
+    /* Matches a bare <h2>'s default look, since this replaces one as the visible section
+       title -- see each panel's own usage in AdminPage. */
+    font-size: 1.5em;
+    font-weight: 700;
+}
+
+.collapsible-section__chevron {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    transition: transform 0.15s ease;
+}
+
+.collapsible-section__chevron--open {
+    transform: rotate(180deg);
+}
+
+.collapsible-section__body {
+    margin-top: 12px;
 }
 
 .admin-settings__toggle {
@@ -981,9 +1071,15 @@ a {
     }
 }
 
+/* Same neutral zone treatment as .admin-settings above, for the two side-by-side panels in
+   the layout grid below. */
 .admin-users-panel,
 .admin-detail {
     min-width: 0;
+    padding: 12px 16px;
+    background: #f7f7f7;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
 }
 
 .admin-table__scroll {
@@ -1016,10 +1112,38 @@ a {
     background: #eef0ff;
 }
 
-.admin-detail {
-    border: 1px solid #eee;
-    border-radius: 8px;
-    padding: 16px;
+/* The extra row a verified-trade row expands into on click (see AdminPage) -- not itself
+   clickable/hoverable like a normal .admin-table row, so it opts back out of both. */
+.admin-table__detail-row {
+    cursor: default;
+}
+
+.admin-table__detail-row:hover {
+    background: inherit;
+}
+
+.admin-trade-detail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 32px;
+    padding: 4px 0;
+}
+
+.admin-trade-detail__side {
+    flex: 1 1 240px;
+    min-width: 0;
+}
+
+.admin-trade-detail__side h4 {
+    margin: 0 0 4px;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.admin-trade-detail__side p {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
 }
 
 .admin-search {
@@ -1395,6 +1519,61 @@ a {
 
 .toast__close {
     flex: none;
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+
+/* --- prompt banner (optional-to-answer research prompts) --- */
+
+/* Flows at the top of the page content (not fixed, unlike .toast) since it asks for an actual
+   answer rather than just confirming something happened -- it shouldn't time out or risk
+   overlapping the toast that may already be showing. */
+.prompt-banner {
+    /* CardDetailPage renders this as a direct child of .card-detail, which is a two-column
+       grid on anything wider than 600px (see that rule above) -- without this, the banner
+       gets auto-placed into just the narrow hero column like any other grid item, instead of
+       sitting as a full-width bar above both columns. */
+    grid-column: 1 / -1;
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+    margin-bottom: 16px;
+    padding: 14px 40px 14px 16px;
+    background: #eef6ff;
+    border: 1px solid #cfe3fb;
+    border-radius: 8px;
+}
+
+.prompt-banner p {
+    margin: 0;
+    flex: 1 1 240px;
+}
+
+.prompt-banner__actions {
+    display: flex;
+    gap: 8px;
+}
+
+.prompt-banner__notes {
+    flex: 1 1 100%;
+    font: inherit;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    resize: vertical;
+}
+
+.prompt-banner__close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
     background: none;
     border: none;
     color: inherit;

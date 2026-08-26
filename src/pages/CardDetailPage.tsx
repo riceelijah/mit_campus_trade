@@ -1,33 +1,47 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
+import { useParams, useLocation, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { getSupercardByHighlightId } from '../data/supercards';
+import { useAuth } from '../auth/AuthContext';
 import { useCollectedCardFor } from '../data/ownership';
 import { capitalize } from '../lib/format';
+import { PendingResearchPrompt } from '../types';
 import FlippableCard from '../components/FlippableCard';
 import CustodyChain from '../components/CustodyChain';
 import Toast from '../components/Toast';
+import PromptBanner from '../components/PromptBanner';
 
 export default function CardDetailPage() {
     const { highlightId } = useParams<{ highlightId: string }>();
     const supercard = highlightId ? getSupercardByHighlightId(highlightId) : undefined;
+    // `?instance=` picks out one specific collected copy (see the Hand view's per-copy tiles
+    // in CollectionPage) -- falls back to the first collected copy when absent or unmatched.
+    const [searchParams] = useSearchParams();
+    const instanceId = searchParams.get('instance') ?? undefined;
     // Called unconditionally, before the early return below, per the Rules of Hooks -- -1 is
     // a sentinel dex number no real Supercard has, so an unmatched route safely resolves to
     // "not collected" instead of skipping the hook.
-    const collectedCard = useCollectedCardFor(supercard?.n ?? -1);
+    const collectedCard = useCollectedCardFor(supercard?.n ?? -1, instanceId);
+    // Only used to note which copy is shown below when the viewer has more than one -- see
+    // the Hand view's per-copy tiles in CollectionPage.
+    const { user } = useAuth();
+    const collectedCopyCount = user?.collected.filter((card) => card.n === supercard?.n).length ?? 0;
 
     // The QR scanner's "Just looking" option navigates straight here and hands off its
     // confirmation message via router state, rather than showing it inside the scanner modal.
     // Consumed once (guarded by the ref) and stripped from history so a refresh or back-nav
-    // doesn't re-show it.
+    // doesn't re-show it. A successful collect (see CollectFlow.finish) may also hand off an
+    // optional-to-answer research prompt (PromptBanner) the same way.
     const location = useLocation();
     const navigate = useNavigate();
     const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [prompt, setPrompt] = useState<PendingResearchPrompt | null>(null);
     const consumedToast = useRef(false);
     useEffect(() => {
-        const state = location.state as { toast?: string } | null;
-        if (!consumedToast.current && state?.toast) {
+        const state = location.state as { toast?: string; prompt?: PendingResearchPrompt } | null;
+        if (!consumedToast.current && (state?.toast || state?.prompt)) {
             consumedToast.current = true;
-            setToastMessage(state.toast);
+            if (state.toast) setToastMessage(state.toast);
+            if (state.prompt) setPrompt(state.prompt);
             navigate(location.pathname, { replace: true, state: null });
         }
     }, [location, navigate]);
@@ -47,6 +61,7 @@ export default function CardDetailPage() {
     return (
         <div className="card-detail">
             {toastMessage && <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />}
+            {prompt && <PromptBanner prompt={prompt} onDone={() => setPrompt(null)} />}
 
             <div className="card-detail__hero">
                 <FlippableCard supercard={supercard} />
@@ -118,7 +133,15 @@ export default function CardDetailPage() {
                 <div className="card-detail__section">
                     <h3>Your Card's History</h3>
                     {collectedCard ? (
-                        <CustodyChain custody={collectedCard.custody} />
+                        <>
+                            {collectedCopyCount > 1 && (
+                                <p className="not-owned-note">
+                                    Showing history for copy {collectedCard.uniqueId} (you have{' '}
+                                    {collectedCopyCount} copies of this card).
+                                </p>
+                            )}
+                            <CustodyChain custody={collectedCard.custody} />
+                        </>
                     ) : (
                         <p className="not-owned-note">You haven't collected this card yet.</p>
                     )}

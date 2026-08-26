@@ -4,17 +4,19 @@ import type { Card } from './card';
 export class User {
     /**
      * AF(id, username, name, email, team, isAdmin, collected, owned, seen,
-     *  collectionViewMode): a registered MIT Campus Trade student account belonging to the
-     *  student named `name`, reachable at `email`, uniquely identified by `id` and by
-     *  `username` (the local part of `email`, before '@'), on team `team` (one of the 12 flag
-     *  colors freshmen packs come in), with administrative privileges over the site iff
-     *  `isAdmin`; `collected` is every card instance this student has ever owned (their
-     *  "Pokedex" -- includes cards later traded away), `owned` is the subset of `collected`
-     *  this student currently holds (i.e. is the latest/current owner of), `seen` is the set
-     *  of supercard (dex) numbers this student has scanned via the QR scanner's "Just
-     *  looking" option without registering them to their collection, and
-     *  `collectionViewMode` is this student's last-selected Owned/Collected/Seen/All
-     *  visibility toggle on the Collection page, remembered across sessions.
+     *  collectionViewMode, colorChallengeCompleted, subObjectiveCompleted): a registered MIT
+     *  Campus Trade student account belonging to the student named `name`, reachable at
+     *  `email`, uniquely identified by `id` and by `username` (the local part of `email`,
+     *  before '@'), on team `team` (one of the 12 flag colors freshmen packs come in), with
+     *  administrative privileges over the site iff `isAdmin`; `collected` is every card
+     *  instance this student has ever owned (their "Pokedex" -- includes cards later traded
+     *  away), `owned` is the subset of `collected` this student currently holds (i.e. is the
+     *  latest/current owner of), `seen` is the set of supercard (dex) numbers this student has
+     *  scanned via the QR scanner's "Just looking" option without registering them to their
+     *  collection, `collectionViewMode` is this student's last-selected Owned/Collected/Seen/
+     *  All visibility toggle on the Collection page, remembered across sessions, and
+     *  `colorChallengeCompleted`/`subObjectiveCompleted` are admin-set badges of progress on
+     *  the two out-of-app challenges.
      *
      * RI:
      *  - Number.isInteger(id) && id >= 1
@@ -80,6 +82,10 @@ export class User {
      *        registering them; defaults to empty
      * @param collectionViewMode this student's remembered Collection-page visibility toggle;
      *        defaults to 'all'
+     * @param colorChallengeCompleted whether an admin has marked this student as having
+     *        finished the color challenge; defaults to false
+     * @param subObjectiveCompleted whether an admin has marked this student as having
+     *        finished their sub-objective; defaults to false
      */
     public constructor(
         public readonly id: number,
@@ -92,6 +98,8 @@ export class User {
         owned: Card[] = [],
         seen: ReadonlySet<number> = new Set(),
         public readonly collectionViewMode: CollectionViewMode = 'all',
+        public readonly colorChallengeCompleted: boolean = false,
+        public readonly subObjectiveCompleted: boolean = false,
     ) {
         this._collected = [...collected];
         this._owned = [...owned];

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useSettings } from '../settings/SettingsContext';
@@ -9,9 +9,11 @@ import {
     AdminUserCardsJson,
     FlagColor,
     VerifiedTradeJson,
+    ExchangeEventJson,
 } from '../types';
 import { extractError } from '../lib/api';
 import { capitalize } from '../lib/format';
+import CollapsibleSection from '../components/CollapsibleSection';
 
 interface TypeFilter {
     color?: FlagColor;
@@ -63,6 +65,12 @@ export default function AdminPage() {
 
     const [verifiedTrades, setVerifiedTrades] = useState<VerifiedTradeJson[]>([]);
     const [verifiedTradesError, setVerifiedTradesError] = useState<string | null>(null);
+    // Which verified-trade row is expanded to show its research responses, if any -- at most
+    // one at a time, click-to-toggle (see the table body below).
+    const [expandedTradeId, setExpandedTradeId] = useState<number | null>(null);
+
+    const [exchangeEvents, setExchangeEvents] = useState<ExchangeEventJson[]>([]);
+    const [exchangeEventsError, setExchangeEventsError] = useState<string | null>(null);
 
     const loadUsers = useCallback(async () => {
         const res = await fetch('/api/admin/users', { credentials: 'include' });
@@ -84,6 +92,16 @@ export default function AdminPage() {
         setVerifiedTrades(body.trades);
     }, []);
 
+    const loadExchangeEvents = useCallback(async () => {
+        const res = await fetch('/api/admin/exchange-events', { credentials: 'include' });
+        if (!res.ok) {
+            setExchangeEventsError(await extractError(res));
+            return;
+        }
+        const body = await res.json();
+        setExchangeEvents(body.events);
+    }, []);
+
     const loadCardsFor = useCallback(async (userId: number) => {
         const res = await fetch(`/api/admin/users/${userId}/cards`, { credentials: 'include' });
         if (!res.ok) {
@@ -99,8 +117,9 @@ export default function AdminPage() {
         if (user?.isAdmin) {
             loadUsers();
             loadVerifiedTrades();
+            loadExchangeEvents();
         }
-    }, [user, loadUsers, loadVerifiedTrades]);
+    }, [user, loadUsers, loadVerifiedTrades, loadExchangeEvents]);
 
     const filteredUsers = useMemo(
         () => users.filter((u) => matches(userSearch, u.username, u.name, u.email)),
@@ -213,6 +232,55 @@ export default function AdminPage() {
         );
     }
 
+    // Shared by both achievement toggles below -- both are the same {value: boolean} POST
+    // /api/admin/users/:userId/<kind> shape, just a different kind. Optimistically updates the
+    // local `users` list rather than re-fetching the whole table, since that's the only state
+    // this touches.
+    async function handleToggleAchievement(
+        userId: number,
+        kind: 'color-challenge' | 'sub-objective',
+        value: boolean,
+    ) {
+        setUsersError(null);
+        try {
+            const res = await fetch(`/api/admin/users/${userId}/${kind}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ value }),
+            });
+            if (!res.ok) throw new Error(await extractError(res));
+            const field = kind === 'color-challenge' ? 'colorChallengeCompleted' : 'subObjectiveCompleted';
+            setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, [field]: value } : u)));
+        } catch (err) {
+            setUsersError(err instanceof Error ? err.message : 'Something went wrong');
+        }
+    }
+
+    // Grants/revokes admin privileges -- unlike the achievement toggles above, this always
+    // confirms first (it changes what someone else can do on the site, not just a display
+    // badge) and can never target the caller's own account (the checkbox that calls this is
+    // itself disabled for that row -- see the users table below -- and the server enforces the
+    // same restriction independently).
+    async function handleToggleAdmin(userId: number, username: string, value: boolean) {
+        const verb = value ? 'grant' : 'revoke';
+        if (!confirm(`Are you sure you want to ${verb} admin access for ${username}?`)) return;
+
+        setUsersError(null);
+        try {
+            const res = await fetch(`/api/admin/users/${userId}/admin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ value }),
+            });
+            if (!res.ok) throw new Error(await extractError(res));
+            setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, isAdmin: value } : u)));
+        } catch (err) {
+            setUsersError(err instanceof Error ? err.message : 'Something went wrong');
+        }
+    }
+
     function handleTransfer(cardInstanceId: number, newOwnerUserId: number) {
         setTransferringInstanceId(null);
         setTransferSearch('');
@@ -313,8 +381,7 @@ export default function AdminPage() {
         <div>
             <h1>Admin</h1>
 
-            <div className="admin-settings">
-                <h2>Site settings</h2>
+            <CollapsibleSection title="Site settings" className="admin-settings" defaultOpen={false}>
                 {settingsError && <p className="form-error">{settingsError}</p>}
                 <label className="admin-settings__toggle">
                     <input
@@ -337,30 +404,13 @@ export default function AdminPage() {
                     />
                     Pre-launch lockdown (only Home/Register/Login/Account reachable, admins exempt)
                 </label>
-            </div>
+            </CollapsibleSection>
 
-            <div className="admin-settings admin-danger-zone">
-                <h2>Danger zone</h2>
-                <p className="admin-card-row__categories">
-                    Wipes every card&rsquo;s ownership and transaction history site-wide, returning the entire
-                    pool to unclaimed. Individual cards can be reset the same way from a student&rsquo;s card
-                    list below (look for &ldquo;Reset&rdquo; on each card).
-                </p>
-                <button
-                    type="button"
-                    className="admin-button--danger"
-                    disabled={actionPending}
-                    onClick={handleClearAllHistory}
-                >
-                    Clear ALL ownership &amp; history
-                </button>
-            </div>
-
-            <div className="admin-settings">
-                <h2>Verified trades</h2>
+            <CollapsibleSection title="Verified trades" className="admin-settings" defaultOpen={false}>
                 <p className="admin-card-row__categories">
                     Two-way trades the system detected automatically -- both sides scanned their new card and
-                    correctly said who they got it from.
+                    correctly said who they got it from. Click a row to see either side&rsquo;s
+                    trade-conversation research answer, if they gave one.
                 </p>
                 {verifiedTradesError && <p className="form-error">{verifiedTradesError}</p>}
                 <div className="admin-table__scroll">
@@ -376,16 +426,52 @@ export default function AdminPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {verifiedTrades.map((t) => (
-                                <tr key={t.id}>
-                                    <td>{t.userX.username}</td>
-                                    <td>{t.cardA.uniqueId}</td>
-                                    <td>{new Date(t.datetimeX).toLocaleString()}</td>
-                                    <td>{t.userY.username}</td>
-                                    <td>{t.cardB.uniqueId}</td>
-                                    <td>{new Date(t.datetimeY).toLocaleString()}</td>
-                                </tr>
-                            ))}
+                            {verifiedTrades.map((t) => {
+                                const expanded = expandedTradeId === t.tradeId;
+                                return (
+                                    <Fragment key={t.tradeId}>
+                                        <tr
+                                            aria-expanded={expanded}
+                                            onClick={() => setExpandedTradeId(expanded ? null : t.tradeId)}
+                                        >
+                                            <td>{t.userOne.username}</td>
+                                            <td>{t.cardGivenByUserOneUniqueId}</td>
+                                            <td>{new Date(t.userOneTradeTime).toLocaleString()}</td>
+                                            <td>{t.userTwo.username}</td>
+                                            <td>{t.cardGivenByUserTwoUniqueId}</td>
+                                            <td>{new Date(t.userTwoTradeTime).toLocaleString()}</td>
+                                        </tr>
+                                        {expanded && (
+                                            <tr className="admin-table__detail-row">
+                                                <td colSpan={6}>
+                                                    <div className="admin-trade-detail">
+                                                        <div className="admin-trade-detail__side">
+                                                            <h4>
+                                                                {t.userOne.username}&rsquo;s conversation
+                                                                notes
+                                                            </h4>
+                                                            <p>
+                                                                {t.userOneConversationNotes ??
+                                                                    'No answer given.'}
+                                                            </p>
+                                                        </div>
+                                                        <div className="admin-trade-detail__side">
+                                                            <h4>
+                                                                {t.userTwo.username}&rsquo;s conversation
+                                                                notes
+                                                            </h4>
+                                                            <p>
+                                                                {t.userTwoConversationNotes ??
+                                                                    'No answer given.'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
+                                );
+                            })}
                             {verifiedTrades.length === 0 && (
                                 <tr>
                                     <td colSpan={6}>No verified trades yet.</td>
@@ -394,12 +480,56 @@ export default function AdminPage() {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Card Events" className="admin-settings" defaultOpen={false}>
+                <p className="admin-card-row__categories">
+                    Every time a card has been obtained, not just verified trades -- including the
+                    optional-to-answer research prompts players saw right after (see PromptBanner), when
+                    given.
+                </p>
+                {exchangeEventsError && <p className="form-error">{exchangeEventsError}</p>}
+                <div className="admin-table__scroll">
+                    <table className="admin-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Card</th>
+                                <th>When</th>
+                                <th>Received from someone?</th>
+                                <th>Conversation notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {exchangeEvents.map((e) => (
+                                <tr key={e.exchangeEventId}>
+                                    <td>{e.userName}</td>
+                                    <td>{e.cardUniqueId ?? '—'}</td>
+                                    <td>{new Date(e.tradeTime).toLocaleString()}</td>
+                                    <td>
+                                        {e.receivedFromOtherPerson === 'Y'
+                                            ? 'Yes'
+                                            : e.receivedFromOtherPerson === 'N'
+                                              ? 'No'
+                                              : '—'}
+                                    </td>
+                                    <td>{e.conversationNotes ?? '—'}</td>
+                                </tr>
+                            ))}
+                            {exchangeEvents.length === 0 && (
+                                <tr>
+                                    <td colSpan={5}>No card events yet.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </CollapsibleSection>
 
             {usersError && <p className="form-error">{usersError}</p>}
 
             <div className={`admin-layout${selectedUserId === null ? ' admin-layout--single' : ''}`}>
-                <div className="admin-users-panel">
+                <CollapsibleSection title="Students" className="admin-users-panel">
                     <input
                         type="search"
                         className="admin-search"
@@ -416,6 +546,8 @@ export default function AdminPage() {
                                     <th>Email</th>
                                     <th>Team</th>
                                     <th>Admin</th>
+                                    <th>Color Challenge</th>
+                                    <th>Sub-Objective</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -428,21 +560,81 @@ export default function AdminPage() {
                                         onClick={() => selectUser(u.id)}
                                     >
                                         <td>{u.username}</td>
-                                        <td>{u.name}</td>
+                                        <td>
+                                            {u.name}
+                                            {u.colorChallengeCompleted && (
+                                                <span
+                                                    className="chip chip--inline"
+                                                    title="Color Challenge complete"
+                                                >
+                                                    🎨
+                                                </span>
+                                            )}
+                                            {u.subObjectiveCompleted && (
+                                                <span
+                                                    className="chip chip--inline"
+                                                    title="Sub-Objective complete"
+                                                >
+                                                    🎯
+                                                </span>
+                                            )}
+                                        </td>
                                         <td>{u.email}</td>
                                         <td>{capitalize(u.team)}</td>
-                                        <td>{u.isAdmin ? 'yes' : ''}</td>
+                                        <td onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={u.isAdmin}
+                                                disabled={u.id === user.id}
+                                                title={
+                                                    u.id === user.id
+                                                        ? "You can't change your own admin status"
+                                                        : undefined
+                                                }
+                                                onChange={(e) =>
+                                                    handleToggleAdmin(u.id, u.username, e.target.checked)
+                                                }
+                                            />
+                                        </td>
+                                        <td onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={u.colorChallengeCompleted}
+                                                onChange={(e) =>
+                                                    handleToggleAchievement(
+                                                        u.id,
+                                                        'color-challenge',
+                                                        e.target.checked,
+                                                    )
+                                                }
+                                            />
+                                        </td>
+                                        <td onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={u.subObjectiveCompleted}
+                                                onChange={(e) =>
+                                                    handleToggleAchievement(
+                                                        u.id,
+                                                        'sub-objective',
+                                                        e.target.checked,
+                                                    )
+                                                }
+                                            />
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                </div>
+                </CollapsibleSection>
 
                 {selectedUserId !== null && (
-                    <div className="admin-detail">
-                        <h2>{selectedUser?.username}&rsquo;s cards</h2>
-
+                    <CollapsibleSection
+                        title={`${selectedUser?.username ?? ''}’s cards`}
+                        className="admin-detail"
+                        defaultOpen={false}
+                    >
                         {actionError && <p className="form-error">{actionError}</p>}
 
                         <div className="admin-bulk-actions">
@@ -690,9 +882,29 @@ export default function AdminPage() {
                                 );
                             })}
                         </ul>
-                    </div>
+                    </CollapsibleSection>
                 )}
             </div>
+
+            <CollapsibleSection
+                title="Danger zone"
+                className="admin-settings admin-danger-zone"
+                defaultOpen={false}
+            >
+                <p className="admin-card-row__categories">
+                    Wipes every card&rsquo;s ownership and transaction history site-wide, returning the entire
+                    pool to unclaimed. Individual cards can be reset the same way from a student&rsquo;s card
+                    list below (look for &ldquo;Reset&rdquo; on each card).
+                </p>
+                <button
+                    type="button"
+                    className="admin-button--danger"
+                    disabled={actionPending}
+                    onClick={handleClearAllHistory}
+                >
+                    Clear ALL ownership &amp; history
+                </button>
+            </CollapsibleSection>
         </div>
     );
 }

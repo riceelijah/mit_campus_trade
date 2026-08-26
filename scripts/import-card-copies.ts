@@ -7,7 +7,7 @@
  * pool of instances is fixed and comes entirely from this sheet; see server/db.ts's
  * grantCardInstance/collectCardInstance.
  *
- * DESTRUCTIVE: deletes every verified_trades, custody_events, card_instances, and
+ * DESTRUCTIVE: deletes every verified_trades, exchange_events, card_instances, and
  * seen_supercards row before importing. Run via `npx tsx scripts/import-card-copies.ts` (or
  * against a scratch DB first, e.g. `DB_PATH=/tmp/x.db npx tsx scripts/import-card-copies.ts`).
  */
@@ -52,9 +52,9 @@ console.log(`Parsed ${rows.length} copies across ${new Set(rows.map((r) => r.car
 db.exec('BEGIN');
 try {
     // Foreign keys are enforced (PRAGMA foreign_keys = ON in db.ts), so verified_trades --
-    // which references custody_events, which references card_instances -- has to go first.
+    // which references exchange_events, which references card_instances -- has to go first.
     db.exec('DELETE FROM verified_trades');
-    db.exec('DELETE FROM custody_events');
+    db.exec('DELETE FROM exchange_events');
     db.exec('DELETE FROM card_instances');
     db.exec('DELETE FROM seen_supercards');
 

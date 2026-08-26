@@ -4,19 +4,23 @@ import ScrollingGallery from '../components/ScrollingGallery';
 export default function HomePage() {
     return (
         <div>
-            <h1>MIT Campus Trade</h1>
+            <h1>Welcome to Campus Trade!</h1>
             <p>
-                Campus Trade is a trading card game for MIT orientation. On day one, every freshman gets a
-                pack of cards matching their team's color -- 12 flag colors in all. Each card features artwork
-                of a person, place, event, dorm, or club on campus, made by an MIT student, with an excerpt
-                from an interview with someone on that topic on the back.
+                Campus Trade is a campus-wide trading card game designed to help you meet people, explore MIT,
+                and discover the stories that make campus special.
             </p>
             <p>
-                The goal is simple: make friends, and try to collect a card in every one of the 12 flag
-                colors. Trading a card requires completing its exchange ritual with the other person -- an
-                icebreaker question, a selfie, a plan to grab food, whatever it asks for. New packs and
-                objectives get added as orientation continues, so there's always a reason to keep trading.
+                Every card features student artwork, an excerpt from an interview with an upperclassman, and
+                an Exchange Cost: a conversation starter designed to take you beyond the usual “What’s your
+                name?” and “Where are you from?”
             </p>
+            <p>
+                As you meet people, trade cards, and build your collection, you’ll discover new corners of
+                campus and the people who call them home. Log your collection here in the Campus Trade Portal
+                and see what parts of MIT you choose to collect.
+            </p>
+            <p>Meet people. Trade cards. Start conversations.</p>
+            <p>Because at the end of the day, the real treasure is the friends you make along the way.</p>
             <ScrollingGallery cards={SUPERCARDS} />
         </div>
     );

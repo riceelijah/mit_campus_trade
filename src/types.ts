@@ -68,6 +68,11 @@ export interface PublicUserJson {
     team: FlagColor;
     isAdmin: boolean;
     collectionViewMode: CollectionViewMode;
+    /** Manually toggled by an admin once the player finishes the color challenge -- shown as a
+     *  badge in the admin panel and on the player's own Collection page. */
+    colorChallengeCompleted: boolean;
+    /** Same as colorChallengeCompleted, for the player's sub-objective. */
+    subObjectiveCompleted: boolean;
 }
 
 /** One entry in a card instance's ownership history, as sent over the API. */
@@ -117,14 +122,51 @@ export interface CollectCandidatesJson {
 }
 
 /** One row of GET /api/admin/verified-trades -- a two-way trade the system detected by
- *  matching up correctly-attributed custody events on both sides (see server/db.ts's
- *  tryFormVerifiedTrade). */
+ *  matching up correctly-attributed exchange events on both sides (see server/db.ts's
+ *  tryFormVerifiedTrade). Card identities are always the 4-character alphanumeric unique_id
+ *  printed on the physical card, never a bare internal number. The two
+ *  userOne/TwoConversationNotes fields are each side's own answer to the trade-conversation
+ *  research banner (PromptBanner) for the exchange event that made up their half of this
+ *  trade -- null if that side never answered. */
 export interface VerifiedTradeJson {
-    id: number;
-    userX: { id: number; username: string; name: string };
-    cardA: { cardInstanceId: number; uniqueId: string; supercardN: number };
-    datetimeX: string;
-    userY: { id: number; username: string; name: string };
-    cardB: { cardInstanceId: number; uniqueId: string; supercardN: number };
-    datetimeY: string;
+    tradeId: number;
+    userOne: { id: number; username: string; name: string };
+    cardGivenByUserOneUniqueId: string;
+    userOneTradeTime: string;
+    userOneConversationNotes: string | null;
+    userTwo: { id: number; username: string; name: string };
+    cardGivenByUserTwoUniqueId: string;
+    userTwoTradeTime: string;
+    userTwoConversationNotes: string | null;
+}
+
+/** The shape of one research-prompt banner, handed to the client via CollectFlow's navigation
+ *  state right after a successful collect -- see PromptBanner. The two variants are mutually
+ *  exclusive: a first-ever scan never has a previous owner to claim, so the attribution popup
+ *  (and thus 'trade-conversation') never happens on that same event. */
+export type PendingResearchPrompt =
+    | { type: 'received-from-other'; exchangeEventId: number }
+    | { type: 'trade-conversation'; exchangeEventId: number };
+
+/** The shape returned by POST /api/me/collect. */
+export interface CollectResponseJson {
+    card: PublicCardInstanceJson;
+    exchangeEventId: number;
+    /** True iff this card instance had never been claimed by anyone before this collect --
+     *  the trigger for the "did you receive this from someone?" banner. */
+    firstEverScan: boolean;
+}
+
+/** One row of GET /api/admin/exchange-events -- every card-obtained event, current or
+ *  historical, not just verified trades. The two research-prompt fields (see exchange_events'
+ *  own schema comment in server/db.ts) are null when that particular prompt was never
+ *  asked/answered for this event. */
+export interface ExchangeEventJson {
+    exchangeEventId: number;
+    userName: string;
+    supercardN: number | null;
+    cardUniqueId: string | null;
+    tradeTime: string;
+    receivedFromOtherPerson: 'Y' | 'N' | null;
+    conversationNotes: string | null;
 }

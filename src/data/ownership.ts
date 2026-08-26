@@ -33,11 +33,20 @@ export function useOwnedSupercardNumbers(): ReadonlySet<number> {
 
 /**
  * @param n a Supercard's collection/dex number
+ * @param uniqueId when given, and the viewer has collected more than one copy of Supercard
+ *        `n`, prefers the specific copy with this uniqueId over whichever comes first --
+ *        lets a card's detail page show one particular copy's own custody chain (see the
+ *        `?instance=` param on CardDetailPage) instead of always the first collected copy.
+ *        Falls back to the first-match behavior if no copy matches (or none was given).
  * @returns the current viewer's Card instance of Supercard `n` from their full ownership
  *          history (current or past), if they've ever collected one
  */
-export function useCollectedCardFor(n: number): Card | undefined {
+export function useCollectedCardFor(n: number, uniqueId?: string): Card | undefined {
     const { user } = useAuth();
+    if (uniqueId) {
+        const exact = user?.collected.find((card) => card.n === n && card.uniqueId === uniqueId);
+        if (exact) return exact;
+    }
     return user?.collected.find((card) => card.n === n);
 }
 
