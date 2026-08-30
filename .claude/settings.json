@@ -129,7 +129,9 @@
       "Bash(rm -f /private/tmp/claude-501/-Users-riceelijah-Desktop-dev-other-campus-trade/6cf4d8a0-5fd7-4da5-b368-3cd6cbf756fc/scratchpad/migration-test.db*)",
       "Bash(grep -n \"^h1\\\\b\\\\|^h1,\\\\|margin.*h1\\\\| h1 {\" /Users/riceelijah/Desktop/dev/other/campus_trade/src/index.css)",
       "Bash(grep -n \"^                \\)}\\\\|</ul>\\\\|admin-layout\\\\|</div>$\" /Users/riceelijah/Desktop/dev/other/campus_trade/src/pages/AdminPage.tsx)",
-      "Bash(grep -n \"^            </div>$\\\\|^        </div>$\" /Users/riceelijah/Desktop/dev/other/campus_trade/src/pages/AdminPage.tsx)"
+      "Bash(grep -n \"^            </div>$\\\\|^        </div>$\" /Users/riceelijah/Desktop/dev/other/campus_trade/src/pages/AdminPage.tsx)",
+      "Bash(npm ci *)",
+      "Bash(git ls-tree *)"
     ],
     "additionalDirectories": [
       "/Users/riceelijah/Desktop/dev/other/campus_trade/server"
