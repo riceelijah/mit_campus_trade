@@ -11,6 +11,7 @@
         "dev:web": "vite",
         "dev:api": "tsx watch --env-file-if-exists=.env server/index.ts",
         "build": "tsc --noEmit && vite build",
+        "start": "tsx --env-file-if-exists=.env server/index.ts",
         "preview": "vite preview",
         "generate:data": "tsx scripts/generate-supercards.ts",
         "backup:db": "tsx scripts/backup-db.ts",
