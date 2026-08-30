@@ -41,19 +41,42 @@ admin. Put a real value after the `=`, or delete the line entirely.
 
 ## Production deployment
 
-This is two separate things that both have to be running, plus a reverse proxy in front of
-them -- there's no single command that starts "the app."
+This is two separate systems, deployed independently -- there's no single command that starts
+"the app."
 
-1. **The Express API** (`server/index.ts`) -- serves everything under `/api/*`. Nothing else
-   serves this; there's no fallback.
-2. **The built static frontend** (`dist/`, from `npm run build`) -- plain static files. Nginx
-   (or whatever's fronting the site) should serve these directly. **Do not run `vite preview`
-   or `vite` itself as the production frontend** -- that's a dev-convenience server, not meant
-   to sit behind a public domain, and critically it does not know about `/api/*` at all, so
-   proxying to it instead of nginx serving `dist/` directly silently breaks every API call
-   while the page itself still loads fine (this exact mistake is what took the site down during
-   testing -- nothing was listening on the API's port at all, only a stray Vite process was
-   up).
+1. **The frontend** -- a static build (`dist/`, from `npm run build`) served from **Amazon S3**
+   (bucket `mitcampustrade.ccc-mit.org`) behind **Amazon CloudFront**
+   (distribution `E2FAAV4FWGKI2K`). Nothing in this repo serves it -- there's no nginx in front
+   of it, no `vite preview` in production, and no static-file-serving code in
+   `server/index.ts` (it's API-only, always has been).
+
+2. **The Express API** (`server/index.ts`) -- serves everything under `/api/*`, running on its
+   own EC2 instance. Nothing else serves this; there's no fallback.
+
+### Deploying the frontend
+
+```bash
+git checkout deploy-clean
+git pull
+npm ci
+npm run deploy:frontend   # builds dist/, syncs it to S3, invalidates CloudFront
+```
+
+`npm run deploy:frontend` (`scripts/deploy-frontend.ts`) always rebuilds from source first -- it
+never assumes an on-disk `dist/` is current -- then runs `aws s3 sync` against the bucket above
+with `--delete` (so stale build artifacts don't accumulate) and a CloudFront invalidation for
+`/*` (so viewers stop getting cached files immediately instead of whenever their cache happens
+to expire). Requires the AWS CLI installed and configured locally with credentials that can
+write to that bucket and create invalidations on that distribution -- see the script's own doc
+comment for details.
+
+**Open item, not yet verified:** this is a client-side-routed React app, so a hard refresh on
+e.g. `/cards/123` needs to resolve to `index.html`, not a 404/403 straight from S3. That
+requires either an S3 error-document pointing at `index.html`, or a CloudFront custom error
+response (403 and 404 → `/index.html`, HTTP 200) configured on the distribution. Confirm this is
+actually set up before relying on deep links or hard refreshes working in production.
+
+### Deploying the API
 
 Deploy from the **`deploy-clean`** branch, not `main` -- it's the one with the `start` script
 and without dev-only tooling (tests, eslint, etc.) that has no reason to ship.
@@ -62,26 +85,60 @@ and without dev-only tooling (tests, eslint, etc.) that has no reason to ship.
 git checkout deploy-clean
 git pull
 npm ci
-npm run build      # produces dist/
 npm run start      # runs the API on $PORT (default 3001) -- only exists on this branch
 ```
 
+(No `npm run build` needed here -- that only matters for the frontend deploy above. This host
+never serves `dist/`.)
+
 `npm run start` runs in the foreground and dies the moment its terminal/session closes. Run it
-under whatever process supervisor is normally used on the box (`pm2`, a `systemd` service,
-etc.) so it survives a disconnect and restarts if it crashes. In a pinch, `screen -S
-campus-trade-api` before `npm run start`, then `Ctrl+A` `D` to detach, works as a stopgap.
+under a process supervisor so it survives a disconnect and restarts on its own if it crashes --
+don't run it raw in a terminal for anything other than a quick local check. On a systemd-based
+host (e.g. Ubuntu on EC2), a unit like this does the job (adjust `WorkingDirectory`, the `npm`
+path from `which npm`, and the real `SESSION_SECRET`):
 
-**Nginx** (or equivalent) needs to do two things:
+```ini
+# /etc/systemd/system/campus-trade-api.service
+[Unit]
+Description=Campus Trade API
+After=network.target
 
-- Serve `dist/` as static files for everything else, with a fallback to `dist/index.html` for
-  unknown paths (this is a client-side-routed React app -- a hard refresh on e.g. `/cards/123`
-  has to still resolve to the app, not a 404).
-- Reverse-proxy `/api/` to `http://localhost:$PORT` (the Express process from above).
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/campus-trade
+Environment=NODE_ENV=production
+Environment=DB_PATH=/var/lib/campus-trade/campus_trade.db
+Environment=SESSION_SECRET=<a real secret, not blank>
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+The secret lives in this file, so lock it down (`sudo chmod 600` on it) before enabling:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now campus-trade-api
+sudo systemctl status campus-trade-api   # should show active (running)
+sudo journalctl -u campus-trade-api -f   # logs
+```
+
+From then on, a redeploy is `git pull && npm ci && sudo systemctl restart campus-trade-api` --
+no more terminal sessions that die and take the API down with them (this is what actually
+happened once already -- see the git history around the "Re-apply ADMIN_EMAIL/SESSION_SECRET"
+commits for the full story).
 
 Also: the camera-based QR scanner requires a secure context -- HTTPS (or `localhost`). Over
 plain HTTP, browsers don't expose camera access at all, and the scanner fails with "Could not
-access the camera" regardless of permissions. TLS has to be set up before that feature works;
-the manual ID-entry fallback in the scanner covers this in the meantime.
+access the camera" regardless of permissions. The public CloudFront domain is already HTTPS, so
+this is covered for the deployed site; the manual ID-entry fallback in the scanner exists for
+any other context where it isn't.
 
 **After the first deploy (or after adding/changing physical card copies):** run
 `npx tsx scripts/import-card-copies.ts` to populate `card_instances` from
@@ -96,6 +153,6 @@ database with real trading history.
 curl -s http://localhost:$PORT/api/auth/me
 ```
 
-Should print `{"error":"Not authenticated"}` -- real JSON, not an HTML page or a connection
-error. If it doesn't, the API isn't actually running/reachable and nothing account-related will
-work, no matter how correct the code deployed is.
+Should print `{"error":"Not logged in"}` -- real JSON, not an HTML page or a connection error.
+If it doesn't, the API isn't actually running/reachable and nothing account-related will work,
+no matter how correct the code deployed is.

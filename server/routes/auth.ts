@@ -36,9 +36,11 @@ export const authRouter = Router();
 const DUMMY_HASH = await hashPassword('not-a-real-password-used-only-for-timing-safety');
 
 // Applied to register/login/change-password -- the endpoints an attacker would hammer to
-// guess passwords or credential-stuff. Keyed by IP by default; if this ever runs behind a
-// real reverse proxy, `app.set('trust proxy', ...)` needs to be configured so req.ip
-// reflects the real client rather than the proxy.
+// guess passwords or credential-stuff. Keyed by IP by default -- production now does run
+// behind a real reverse proxy (CloudFront), so `app.set('trust proxy', 1)` in index.ts is
+// what makes req.ip reflect the real client instead of CloudFront's own address; see that
+// file's comment for why, and note it's production-only, so this rate limiter is still keyed
+// by the actual raw connection everywhere else (local dev, tests).
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 20,

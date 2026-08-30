@@ -14,6 +14,7 @@
         "preview": "vite preview",
         "generate:data": "tsx scripts/generate-supercards.ts",
         "backup:db": "tsx scripts/backup-db.ts",
+        "deploy:frontend": "tsx scripts/deploy-frontend.ts",
         "lint": "eslint .",
         "format": "prettier --write .",
         "format:check": "prettier --check .",

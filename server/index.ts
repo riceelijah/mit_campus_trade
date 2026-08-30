@@ -8,6 +8,19 @@ import { settingsRouter } from './routes/settings';
 import { SESSION_SECRET } from './auth/session';
 
 const app = express();
+
+// The exact "real reverse proxy" case routes/auth.ts's authLimiter comment already warned
+// about -- production now sits behind CloudFront, which sets X-Forwarded-For on every request.
+// Without this, express-rate-limit refuses to start up its IP-keyed limiters at all (throws
+// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR the first time a request carries that header, since
+// trusting it without being told to would let a client spoof their own rate-limit key). `1`
+// trusts exactly one hop in front of the app -- CloudFront -- which is this deployment's actual
+// topology; only enabled in production so a local/dev request (no real proxy in front) can't
+// spoof its own X-Forwarded-For and bypass rate limiting during testing.
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
+
 app.use(express.json());
 app.use(cookieParser(SESSION_SECRET));
 
