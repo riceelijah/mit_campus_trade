@@ -874,6 +874,172 @@ a {
     background: #111;
 }
 
+/* --- my notes page --- */
+
+.my-notes-intro {
+    max-width: 640px;
+}
+
+/* Same timeline-dot look as .custody-chain -- this list is also an ordered history of card
+   pickups, just told from the student's own point of view instead of one card's ownership. */
+.my-notes-list {
+    list-style: none;
+    margin: 20px 0 0;
+    padding: 0;
+    max-width: 640px;
+    border-left: 2px solid #ddd;
+}
+
+.my-notes-entry {
+    position: relative;
+    padding: 6px 0 20px 20px;
+}
+
+/* Each entry's dot is colored to match its card's own team color (set inline, per entry --
+   see MyNotesPage's cardInfo) rather than a flat neutral marker, so the timeline itself hints
+   at which cards you've been handling at a glance. A real element rather than ::before since
+   it needs a per-entry inline background-color; the border keeps a pale color (white, silver,
+   yellow) visible against the page's own off-white background, same reasoning as the admin
+   card list's .admin-card-row__swatch. Falls back to a neutral gray if a card's color can't be
+   resolved (shouldn't normally happen -- see cardInfo). */
+.my-notes-entry__dot {
+    position: absolute;
+    left: -5px;
+    top: 10px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #aaa;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.my-notes-entry__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.my-notes-entry__title {
+    font-weight: 600;
+    font-size: 1.05rem;
+    text-decoration: none;
+}
+
+.my-notes-entry__title:hover {
+    text-decoration: underline;
+}
+
+/* The "(dex number-id)" parenthetical next to a card's name (see MyNotesPage's CardLabel) --
+   secondary to the name itself, so it reads at 2/3 its size. em, not rem, so it scales with
+   whatever context it's placed in (the entry title vs. the smaller "gave up X for it" line)
+   rather than a single fixed size that would look right in only one of them. */
+.my-notes-entry__id {
+    font-size: 0.67em;
+    font-weight: 400;
+    color: #888;
+}
+
+.my-notes-entry__when {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+/* Who a card came from / what was traded for it -- secondary to the note itself, so it reads
+   at the same understated weight as .admin-card-row__categories does for admin. */
+.my-notes-entry__context {
+    margin: 4px 0 0;
+    font-size: 0.88rem;
+    color: #555;
+}
+
+/* A removed entry has no note to write, just the one line below its header -- dimmed slightly
+   relative to a pickup so the feed still reads pickups as the primary content at a glance. */
+.my-notes-entry--removed {
+    opacity: 0.8;
+}
+
+.my-notes-entry__removed-note {
+    margin: 4px 0 0;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.my-notes-entry__notes {
+    margin-top: 8px;
+}
+
+.my-notes-entry__notes p {
+    margin: 0 0 6px;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+.my-notes-entry__notes--empty {
+    color: #888;
+    font-style: italic;
+}
+
+.my-notes-entry__edit-button {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #444;
+    font-size: 0.85rem;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.my-notes-entry__edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.my-notes-entry__textarea {
+    font: inherit;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    resize: vertical;
+}
+
+.my-notes-entry__edit-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.my-notes-entry__edit-actions button {
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.my-notes-entry__save {
+    background: #111;
+    color: #fff;
+    border: none;
+}
+
+.my-notes-entry__save:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.my-notes-entry__cancel {
+    background: none;
+    border: 1px solid #ccc;
+    color: inherit;
+}
+
+.my-notes-empty {
+    color: #888;
+    font-style: italic;
+}
+
 /* --- rules page --- */
 
 /* The "how to trade" example exchange in RulesPage -- a left-border accent rather than the
@@ -1324,6 +1490,80 @@ a {
 
 .admin-transfer-panel li button:hover {
     background: #f2f2f2;
+}
+
+/* Wraps a student's name and their achievement chips (see .chip--inline) as one group, so the
+   chips wrap together with consistent spacing instead of trailing raggedly off wrapped name
+   text on a narrow screen. */
+.admin-name-cell {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+/* A card event's earlier note versions, shown on expand in the Card Events table -- same
+   timeline-dot look as .custody-chain, since this is also an ordered history. */
+.admin-note-history {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-left: 2px solid #ddd;
+}
+
+.admin-note-history li {
+    padding: 6px 0 6px 14px;
+}
+
+.admin-note-history__when {
+    font-size: 0.78rem;
+    color: #888;
+}
+
+.admin-note-history p {
+    margin: 2px 0 0;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+/* This site is mobile-first (see the 600px breakpoint elsewhere), but the admin page's own
+   panels never got the same treatment -- these are the specific spots where long wrapping text
+   and inline badges/pills look broken on a phone. */
+@media (max-width: 600px) {
+    /* A long toggle label (e.g. the lockdown description) wraps to multiple lines; centering
+       the checkbox against the whole block leaves it looking mis-aligned with the first line. */
+    .admin-settings__toggle {
+        align-items: flex-start;
+    }
+
+    .admin-settings__toggle input {
+        margin-top: 3px;
+    }
+
+    /* The categories list runs on inline right after the card title by default -- give it its
+       own line instead of letting a long comma-joined list crowd the title. */
+    .admin-card-row__categories {
+        display: block;
+        margin-left: 0;
+        margin-top: 2px;
+    }
+
+    /* A pill shape (border-radius: 999px) doesn't read well once its label plus several action
+       buttons wrap onto more than one line -- switch to a plainer rounded rect, and force the
+       label onto its own row so the buttons always wrap cleanly below it rather than squeezing
+       into an ever-widening pill. max-width is required for flex-wrap to actually kick in here:
+       without it, a flex item's default min-width:auto lets it overflow its wrapping parent
+       (.admin-instance-list) rather than shrink, so the buttons would run off the edge of the
+       screen instead of wrapping onto their own line. */
+    .admin-instance-chip {
+        flex-wrap: wrap;
+        max-width: 100%;
+        border-radius: 10px;
+    }
+
+    .admin-instance-chip > span {
+        flex: 1 1 100%;
+    }
 }
 
 /* --- qr scanner --- */

@@ -13,13 +13,14 @@ import {
     AlreadyOwnedError,
     UserRow,
 } from '../db';
-import { serializeCardInstance } from '../serialize';
+import { serializeCardInstance, buildMyCardEventsFeed } from '../serialize';
 import { getSupercardByHighlightId } from '../../src/data/supercards';
 import {
     MyCardsJson,
     CollectionViewMode,
     VALID_COLLECTION_VIEW_MODES,
     CollectResponseJson,
+    MyCardEventJson,
 } from '../../src/types';
 
 export const meRouter = Router();
@@ -33,6 +34,16 @@ meRouter.get('/cards', (_req, res) => {
         seen: seenSupercardNumbersFor(user.id),
     };
     res.status(200).json(payload);
+});
+
+// Powers the My Notes page: every card this student has ever picked up (plus whatever notes
+// they left about the conversation -- current text only, see buildMyCardEventsFeed for why
+// edit history stays admin-only) and every point where a card they held moved on to someone
+// else, merged newest first.
+meRouter.get('/card-events', (_req, res) => {
+    const user = res.locals.user as UserRow;
+    const events: MyCardEventJson[] = buildMyCardEventsFeed(user.id);
+    res.status(200).json({ events });
 });
 
 // Shared by /collect and /seen -- both come from the same QR-scanning flow with the same

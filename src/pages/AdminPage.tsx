@@ -12,7 +12,7 @@ import {
     ExchangeEventJson,
 } from '../types';
 import { extractError } from '../lib/api';
-import { capitalize } from '../lib/format';
+import { capitalize, formatEasternDateTime } from '../lib/format';
 import CollapsibleSection from '../components/CollapsibleSection';
 
 interface TypeFilter {
@@ -71,6 +71,9 @@ export default function AdminPage() {
 
     const [exchangeEvents, setExchangeEvents] = useState<ExchangeEventJson[]>([]);
     const [exchangeEventsError, setExchangeEventsError] = useState<string | null>(null);
+    // Same click-to-toggle pattern as expandedTradeId above, for showing a card event's note
+    // edit history (see priorConversationNotes).
+    const [expandedEventId, setExpandedEventId] = useState<number | null>(null);
 
     const loadUsers = useCallback(async () => {
         const res = await fetch('/api/admin/users', { credentials: 'include' });
@@ -528,10 +531,10 @@ export default function AdminPage() {
                                         >
                                             <td>{t.userOne.username}</td>
                                             <td>{t.cardGivenByUserOneUniqueId}</td>
-                                            <td>{new Date(t.userOneTradeTime).toLocaleString()}</td>
+                                            <td>{formatEasternDateTime(t.userOneTradeTime)}</td>
                                             <td>{t.userTwo.username}</td>
                                             <td>{t.cardGivenByUserTwoUniqueId}</td>
-                                            <td>{new Date(t.userTwoTradeTime).toLocaleString()}</td>
+                                            <td>{formatEasternDateTime(t.userTwoTradeTime)}</td>
                                         </tr>
                                         {expanded && (
                                             <tr className="admin-table__detail-row">
@@ -578,7 +581,7 @@ export default function AdminPage() {
                 <p className="admin-card-row__categories">
                     Every time a card has been obtained, not just verified trades -- including the
                     optional-to-answer research prompts players saw right after (see PromptBanner), when
-                    given.
+                    given. Click a row to see a note&rsquo;s earlier versions, if it&rsquo;s been edited.
                 </p>
                 {exchangeEventsError && <p className="form-error">{exchangeEventsError}</p>}
                 <div className="admin-table__scroll">
@@ -593,21 +596,61 @@ export default function AdminPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {exchangeEvents.map((e) => (
-                                <tr key={e.exchangeEventId}>
-                                    <td>{e.userName}</td>
-                                    <td>{e.cardUniqueId ?? '—'}</td>
-                                    <td>{new Date(e.tradeTime).toLocaleString()}</td>
-                                    <td>
-                                        {e.receivedFromOtherPerson === 'Y'
-                                            ? 'Yes'
-                                            : e.receivedFromOtherPerson === 'N'
-                                              ? 'No'
-                                              : '—'}
-                                    </td>
-                                    <td>{e.conversationNotes ?? '—'}</td>
-                                </tr>
-                            ))}
+                            {exchangeEvents.map((e) => {
+                                const expanded = expandedEventId === e.exchangeEventId;
+                                return (
+                                    <Fragment key={e.exchangeEventId}>
+                                        <tr
+                                            aria-expanded={expanded}
+                                            onClick={() =>
+                                                setExpandedEventId(expanded ? null : e.exchangeEventId)
+                                            }
+                                        >
+                                            <td>{e.userName}</td>
+                                            <td>{e.cardUniqueId ?? '—'}</td>
+                                            <td>{formatEasternDateTime(e.tradeTime)}</td>
+                                            <td>
+                                                {e.receivedFromOtherPerson === 'Y'
+                                                    ? 'Yes'
+                                                    : e.receivedFromOtherPerson === 'N'
+                                                      ? 'No'
+                                                      : '—'}
+                                            </td>
+                                            <td>{e.conversationNotes ?? '—'}</td>
+                                        </tr>
+                                        {expanded && (
+                                            <tr className="admin-table__detail-row">
+                                                <td colSpan={5}>
+                                                    <div className="admin-trade-detail">
+                                                        <div className="admin-trade-detail__side">
+                                                            <h4>Earlier versions of this note</h4>
+                                                            {e.priorConversationNotes.length === 0 ? (
+                                                                <p>No edits.</p>
+                                                            ) : (
+                                                                <ol className="admin-note-history">
+                                                                    {e.priorConversationNotes.map(
+                                                                        (rev, i) => (
+                                                                            <li key={i}>
+                                                                                <span className="admin-note-history__when">
+                                                                                    Replaced{' '}
+                                                                                    {formatEasternDateTime(
+                                                                                        rev.replacedAt,
+                                                                                    )}
+                                                                                </span>
+                                                                                <p>{rev.notes}</p>
+                                                                            </li>
+                                                                        ),
+                                                                    )}
+                                                                </ol>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
+                                );
+                            })}
                             {exchangeEvents.length === 0 && (
                                 <tr>
                                     <td colSpan={5}>No card events yet.</td>
@@ -655,23 +698,25 @@ export default function AdminPage() {
                                         >
                                             <td>{u.username}</td>
                                             <td>
-                                                {u.name}
-                                                {u.colorChallengeCompleted && (
-                                                    <span
-                                                        className="chip chip--inline"
-                                                        title="Color Challenge complete"
-                                                    >
-                                                        🎨
-                                                    </span>
-                                                )}
-                                                {u.subObjectiveCompleted && (
-                                                    <span
-                                                        className="chip chip--inline"
-                                                        title="Sub-Objective complete"
-                                                    >
-                                                        🎯
-                                                    </span>
-                                                )}
+                                                <span className="admin-name-cell">
+                                                    {u.name}
+                                                    {u.colorChallengeCompleted && (
+                                                        <span
+                                                            className="chip chip--inline"
+                                                            title="Color Challenge complete"
+                                                        >
+                                                            🎨
+                                                        </span>
+                                                    )}
+                                                    {u.subObjectiveCompleted && (
+                                                        <span
+                                                            className="chip chip--inline"
+                                                            title="Sub-Objective complete"
+                                                        >
+                                                            🎯
+                                                        </span>
+                                                    )}
+                                                </span>
                                             </td>
                                             <td>{u.email}</td>
                                             <td>{capitalize(u.team)}</td>
@@ -922,14 +967,10 @@ export default function AdminPage() {
                                                                                             className="admin-instance-chip"
                                                                                         >
                                                                                             <span>
-                                                                                                {
-                                                                                                    instance.uniqueId
-                                                                                                }{' '}
-                                                                                                (#
+                                                                                                {sc.n}-
                                                                                                 {
                                                                                                     instance.cardInstanceId
                                                                                                 }
-                                                                                                )
                                                                                                 {!ownedByThem && (
                                                                                                     <em className="admin-instance-chip__note">
                                                                                                         {' '}
