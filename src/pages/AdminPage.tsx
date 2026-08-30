@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useSettings } from '../settings/SettingsContext';
 import { SUPERCARDS, ALL_COLORS, ALL_CATEGORIES } from '../data/supercards';
 import {
-    PublicUserJson,
+    AdminUserJson,
     PublicCardInstanceJson,
     AdminUserCardsJson,
     FlagColor,
@@ -42,7 +42,7 @@ export default function AdminPage() {
     const { user, loading } = useAuth();
     const { settings, refreshSettings } = useSettings();
 
-    const [users, setUsers] = useState<PublicUserJson[]>([]);
+    const [users, setUsers] = useState<AdminUserJson[]>([]);
     const [usersError, setUsersError] = useState<string | null>(null);
     const [userSearch, setUserSearch] = useState('');
 
@@ -286,10 +286,93 @@ export default function AdminPage() {
                 body: JSON.stringify({ value }),
             });
             if (!res.ok) throw new Error(await extractError(res));
-            setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, isAdmin: value } : u)));
+            // Granting admin also force-hides the account server-side -- the response echoes
+            // back the resulting hidden state so both checkboxes stay in sync without a refetch.
+            const body: { isAdmin: boolean; hidden: boolean } = await res.json();
+            setUsers((prev) =>
+                prev.map((u) => (u.id === userId ? { ...u, isAdmin: body.isAdmin, hidden: body.hidden } : u)),
+            );
         } catch (err) {
             setUsersError(err instanceof Error ? err.message : 'Something went wrong');
         }
+    }
+
+    // Independently shows/hides a user from the trade-attribution guessing pool -- no
+    // self-restriction (unlike admin above), but still confirmed since it changes what other
+    // students can see about them.
+    async function handleToggleHidden(userId: number, username: string, value: boolean) {
+        const verb = value ? 'hide' : 'unhide';
+        if (
+            !confirm(
+                `Are you sure you want to ${verb} ${username}? Hidden accounts are excluded from ` +
+                    'the trade-attribution guessing pool shown to students.',
+            )
+        )
+            return;
+
+        setUsersError(null);
+        try {
+            const res = await fetch(`/api/admin/users/${userId}/hidden`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ value }),
+            });
+            if (!res.ok) throw new Error(await extractError(res));
+            setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, hidden: value } : u)));
+        } catch (err) {
+            setUsersError(err instanceof Error ? err.message : 'Something went wrong');
+        }
+    }
+
+    // Permanently deletes a student's account -- their trade history is kept, reassigned to the
+    // reserved "Unassigned" account rather than erased (see deleteUser's doc comment in
+    // server/db.ts). Always confirmed first, same as every other irreversible action here.
+    async function handleDeleteUser(userId: number, username: string) {
+        if (
+            !confirm(
+                `Permanently delete ${username}'s account? Their trade history is kept but reassigned ` +
+                    'to "Unassigned" rather than erased. This cannot be undone.',
+            )
+        )
+            return;
+
+        setUsersError(null);
+        try {
+            const res = await fetch(`/api/admin/users/${userId}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+            if (!res.ok) throw new Error(await extractError(res));
+            setUsers((prev) => prev.filter((u) => u.id !== userId));
+            if (selectedUserId === userId) deselectUser();
+        } catch (err) {
+            setUsersError(err instanceof Error ? err.message : 'Something went wrong');
+        }
+    }
+
+    // Danger-zone bulk action: deletes every non-admin user account, site-wide -- see
+    // deleteAllNonAdminUsers's doc comment in server/db.ts. Refreshes the whole users list on
+    // success (not runAction, which only refreshes cards/trades).
+    function handleDeleteAllNonAdmin() {
+        if (
+            !confirm(
+                'This will permanently delete every non-admin user account, site-wide -- their trade ' +
+                    'history is kept but reassigned to "Unassigned" rather than erased. Admin accounts ' +
+                    'are not affected. This cannot be undone.\n\nAre you absolutely sure?',
+            )
+        )
+            return;
+
+        setUsersError(null);
+        setActionPending(true);
+        fetch('/api/admin/users/delete-all-non-admin', { method: 'POST', credentials: 'include' })
+            .then(async (res) => {
+                if (!res.ok) throw new Error(await extractError(res));
+                await loadUsers();
+            })
+            .catch((err) => setUsersError(err instanceof Error ? err.message : 'Something went wrong'))
+            .finally(() => setActionPending(false));
     }
 
     function handleTransfer(cardInstanceId: number, newOwnerUserId: number) {
@@ -554,8 +637,10 @@ export default function AdminPage() {
                                 <th>Email</th>
                                 <th>Team</th>
                                 <th>Admin</th>
+                                <th>Hidden</th>
                                 <th>Color Challenge</th>
                                 <th>Sub-Objective</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -608,6 +693,15 @@ export default function AdminPage() {
                                             <td onClick={(e) => e.stopPropagation()}>
                                                 <input
                                                     type="checkbox"
+                                                    checked={u.hidden}
+                                                    onChange={(e) =>
+                                                        handleToggleHidden(u.id, u.username, e.target.checked)
+                                                    }
+                                                />
+                                            </td>
+                                            <td onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
                                                     checked={u.colorChallengeCompleted}
                                                     onChange={(e) =>
                                                         handleToggleAchievement(
@@ -631,11 +725,26 @@ export default function AdminPage() {
                                                     }
                                                 />
                                             </td>
+                                            <td onClick={(e) => e.stopPropagation()}>
+                                                <button
+                                                    type="button"
+                                                    className="admin-button--danger"
+                                                    disabled={u.id === user.id}
+                                                    title={
+                                                        u.id === user.id
+                                                            ? "You can't delete your own account"
+                                                            : undefined
+                                                    }
+                                                    onClick={() => handleDeleteUser(u.id, u.username)}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </td>
                                         </tr>
 
                                         {selected && (
                                             <tr className="admin-table__detail-row">
-                                                <td colSpan={7}>
+                                                <td colSpan={9}>
                                                     <div className="admin-student-detail">
                                                         <h3 className="admin-student-detail__heading">
                                                             {u.username}&rsquo;s cards
@@ -998,6 +1107,18 @@ export default function AdminPage() {
                     onClick={handleClearAllHistory}
                 >
                     Clear ALL ownership &amp; history
+                </button>
+                <p className="admin-card-row__categories">
+                    Permanently deletes every non-admin user account. Their trade history is kept but
+                    reassigned to &ldquo;Unassigned&rdquo; rather than erased.
+                </p>
+                <button
+                    type="button"
+                    className="admin-button--danger"
+                    disabled={actionPending}
+                    onClick={handleDeleteAllNonAdmin}
+                >
+                    Delete ALL non-admin users
                 </button>
             </CollapsibleSection>
         </div>

@@ -23,11 +23,14 @@ import {
     setColorChallengeCompleted,
     setSubObjectiveCompleted,
     setIsAdmin,
+    setHidden,
+    deleteUser,
+    deleteAllNonAdminUsers,
     listExchangeEvents,
     findExchangeEventById,
     UserRow,
 } from '../db';
-import { sanitizeUser, serializeCardInstance, sanitizeExchangeEvent } from '../serialize';
+import { sanitizeUserForAdmin, serializeCardInstance, sanitizeExchangeEvent } from '../serialize';
 import { SUPERCARDS, getSupercard } from '../../src/data/supercards';
 import { Supercard } from '../../src/card';
 import { SETTING_KEYS } from '../../src/settings';
@@ -73,7 +76,7 @@ function matchingSupercards({ color, category }: TypeFilter): Supercard[] {
 }
 
 adminRouter.get('/users', (_req, res) => {
-    res.status(200).json({ users: listUsers().map(sanitizeUser) });
+    res.status(200).json({ users: listUsers().map(sanitizeUserForAdmin) });
 });
 
 adminRouter.get('/users/:userId/cards', (req, res) => {
@@ -286,7 +289,61 @@ adminRouter.post('/users/:userId/admin', (req, res) => {
     }
 
     setIsAdmin(userId, value);
-    res.status(200).json({ isAdmin: value });
+    // Granting admin also force-hides the account (see setIsAdmin's doc comment) -- return the
+    // resulting hidden state alongside isAdmin so the client can sync both checkboxes from this
+    // one response instead of refetching the whole users list.
+    const updated = findUserById(userId)!;
+    res.status(200).json({ isAdmin: value, hidden: updated.hidden === 1 });
+});
+
+// Independently shows/hides a user from the trade-attribution guessing pool -- no
+// self-restriction, unlike /admin above, since hiding yourself has no security implication.
+// See the `hidden` column's schema comment (server/db.ts) for exactly what this affects.
+adminRouter.post('/users/:userId/hidden', (req, res) => {
+    const userId = parseId(req.params.userId);
+    const { value } = req.body ?? {};
+
+    if (userId === undefined || !findUserById(userId)) {
+        res.status(404).json({ error: 'No such user' });
+        return;
+    }
+    if (typeof value !== 'boolean') {
+        res.status(400).json({ error: 'value must be a boolean' });
+        return;
+    }
+
+    setHidden(userId, value);
+    res.status(200).json({ hidden: value });
+});
+
+// Permanently deletes a student's account -- their trade history is kept, reassigned to the
+// reserved Unassigned account rather than erased (see deleteUser's doc comment). Admins ARE
+// deletable through this single-user route, if another admin explicitly does it -- only the
+// bulk delete-all-non-admin route below excludes them. Never allows deleting yourself, same
+// enforcement layer as /admin's own self-restriction. Irreversible -- the client is expected to
+// confirm this explicitly before calling it.
+adminRouter.delete('/users/:userId', (req, res) => {
+    const userId = parseId(req.params.userId);
+    const currentAdmin = res.locals.user as UserRow;
+
+    if (userId === undefined || !findUserById(userId) || userId === unassignedUserId()) {
+        res.status(404).json({ error: 'No such user' });
+        return;
+    }
+    if (userId === currentAdmin.id) {
+        res.status(400).json({ error: 'You cannot delete your own account' });
+        return;
+    }
+
+    deleteUser(userId);
+    res.status(200).json({ ok: true });
+});
+
+// Deletes every non-admin user account, site-wide -- see deleteAllNonAdminUsers's doc comment.
+// Irreversible -- the client is expected to confirm this explicitly before calling it.
+adminRouter.post('/users/delete-all-non-admin', (_req, res) => {
+    const deleted = deleteAllNonAdminUsers();
+    res.status(200).json({ deleted });
 });
 
 adminRouter.delete('/users/:userId/seen/:supercardN', (req, res) => {

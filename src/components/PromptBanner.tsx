@@ -82,10 +82,7 @@ export default function PromptBanner({ prompt, onDone }: PromptBannerProps) {
                 </>
             ) : (
                 <>
-                    <p>
-                        Want to help with our research? Tell us a little bit about your conversation when you
-                        traded this card.
-                    </p>
+                    <p>Trade Notes: What do you want to remember about this conversation?</p>
                     <textarea
                         className="prompt-banner__notes"
                         value={notes}

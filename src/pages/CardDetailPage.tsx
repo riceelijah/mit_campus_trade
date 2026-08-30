@@ -28,18 +28,26 @@ export default function CardDetailPage() {
 
     // The QR scanner's "Just looking" option navigates straight here and hands off its
     // confirmation message via router state, rather than showing it inside the scanner modal.
-    // Consumed once (guarded by the ref) and stripped from history so a refresh or back-nav
-    // doesn't re-show it. A successful collect (see CollectFlow.finish) may also hand off an
-    // optional-to-answer research prompt (PromptBanner) the same way.
+    // Consumed once per navigation (guarded below) and stripped from history so a refresh or
+    // back-nav doesn't re-show it. A successful collect (see CollectFlow.finish) may also hand
+    // off an optional-to-answer research prompt (PromptBanner) the same way.
+    //
+    // Tracked by location.key, NOT a plain one-shot boolean -- React Router reuses this same
+    // CardDetailPage instance across navigations on this route (only :highlightId changes), so
+    // a bare `useRef(false)` would flip true on the very first trade and then silently swallow
+    // every later trade's toast/prompt, dismissed or not (confirmed bug: the box appeared to
+    // "never show again"). location.key is fresh on every navigate() call, even when navigating
+    // to the same pathname twice in a row (e.g. collecting two copies of the same card design
+    // back-to-back), so comparing against it instead resets correctly per trade.
     const location = useLocation();
     const navigate = useNavigate();
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const [prompt, setPrompt] = useState<PendingResearchPrompt | null>(null);
-    const consumedToast = useRef(false);
+    const consumedToastKey = useRef<string | undefined>(undefined);
     useEffect(() => {
         const state = location.state as { toast?: string; prompt?: PendingResearchPrompt } | null;
-        if (!consumedToast.current && (state?.toast || state?.prompt)) {
-            consumedToast.current = true;
+        if (consumedToastKey.current !== location.key && (state?.toast || state?.prompt)) {
+            consumedToastKey.current = location.key;
             if (state.toast) setToastMessage(state.toast);
             if (state.prompt) setPrompt(state.prompt);
             navigate(location.pathname, { replace: true, state: null });

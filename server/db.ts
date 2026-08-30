@@ -49,6 +49,12 @@ db.exec(`
         -- and on the player's own Collection page.
         color_challenge_completed INTEGER NOT NULL DEFAULT 0,
         sub_objective_completed INTEGER NOT NULL DEFAULT 0,
+        -- Admin-only visibility flag (see AdminPage.tsx): a hidden user still logs in and
+        -- trades normally, but is excluded from the trade-attribution "who gave you this card"
+        -- guessing pool (randomOtherUsers) and can never be the ground-truth answer to that
+        -- question either (see the collect-candidates route). Granting admin defaults this to
+        -- 1 (see setIsAdmin/insertUser), but it's independently toggleable afterward.
+        hidden INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -191,6 +197,9 @@ if (!userColumns.has('color_challenge_completed')) {
 }
 if (!userColumns.has('sub_objective_completed')) {
     db.exec('ALTER TABLE users ADD COLUMN sub_objective_completed INTEGER NOT NULL DEFAULT 0');
+}
+if (!userColumns.has('hidden')) {
+    db.exec('ALTER TABLE users ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0');
 }
 
 // Same guarded-ALTER pattern as above, for a database created before the pre-generated
@@ -433,6 +442,7 @@ export interface UserRow {
     collection_view_mode: string;
     color_challenge_completed: number;
     sub_objective_completed: number;
+    hidden: number;
     created_at: string;
 }
 
@@ -497,14 +507,18 @@ const stmts = {
     findUserByUsername: db.prepare('SELECT * FROM users WHERE username = ?'),
     findUserById: db.prepare('SELECT * FROM users WHERE id = ?'),
     insertUser: db.prepare(`
-        INSERT INTO users (username, email, name, team, password_hash, is_admin)
-        VALUES (@username, @email, @name, @team, @password_hash, @is_admin)
+        INSERT INTO users (username, email, name, team, password_hash, is_admin, hidden)
+        VALUES (@username, @email, @name, @team, @password_hash, @is_admin, @hidden)
     `),
     updatePasswordHash: db.prepare('UPDATE users SET password_hash = ? WHERE id = ?'),
     updateCollectionViewMode: db.prepare('UPDATE users SET collection_view_mode = ? WHERE id = ?'),
     updateColorChallengeCompleted: db.prepare('UPDATE users SET color_challenge_completed = ? WHERE id = ?'),
     updateSubObjectiveCompleted: db.prepare('UPDATE users SET sub_objective_completed = ? WHERE id = ?'),
-    updateIsAdmin: db.prepare('UPDATE users SET is_admin = ? WHERE id = ?'),
+    // Granting admin also force-hides the account (see setIsAdmin's doc comment) -- revoking
+    // never auto-unhides, so hidden stays independently toggleable afterward either way.
+    updateIsAdminGrant: db.prepare('UPDATE users SET is_admin = 1, hidden = 1 WHERE id = ?'),
+    updateIsAdminRevoke: db.prepare('UPDATE users SET is_admin = 0 WHERE id = ?'),
+    updateHidden: db.prepare('UPDATE users SET hidden = ? WHERE id = ?'),
     listUsers: db.prepare('SELECT * FROM users ORDER BY id'),
 
     createSession: db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)'),
@@ -685,6 +699,22 @@ const stmts = {
     deleteExchangeEventsForInstance: db.prepare('DELETE FROM exchange_events WHERE card_instance_id = ?'),
     deleteAllVerifiedTrades: db.prepare('DELETE FROM verified_trades'),
     deleteAllExchangeEvents: db.prepare('DELETE FROM exchange_events'),
+
+    // Used by deleteUser below -- reassigns (not erases) every FK reference to a deleted user
+    // onto the reserved Unassigned account, so other users' own card-custody chains stay intact
+    // (no dangling FK, no history erased). No exchange_events rows are ever deleted here, so
+    // given_card_exchange_id (a self-reference within exchange_events) never dangles either --
+    // unlike revokeCardInstanceFromUser/clearCardInstanceHistory, which do delete rows and so
+    // must null that column out first.
+    reassignExchangeEventsUser: db.prepare('UPDATE exchange_events SET user_id = ? WHERE user_id = ?'),
+    reassignExchangeEventsAuthInputUser: db.prepare(
+        'UPDATE exchange_events SET authentication_input_user_id = ? WHERE authentication_input_user_id = ?',
+    ),
+    reassignVerifiedTradesUserOne: db.prepare('UPDATE verified_trades SET user_one_id = ? WHERE user_one_id = ?'),
+    reassignVerifiedTradesUserTwo: db.prepare('UPDATE verified_trades SET user_two_id = ? WHERE user_two_id = ?'),
+    deleteSeenSupercardsForUser: db.prepare('DELETE FROM seen_supercards WHERE user_id = ?'),
+    deleteSessionsForUser: db.prepare('DELETE FROM sessions WHERE user_id = ?'),
+    deleteUserById: db.prepare('DELETE FROM users WHERE id = ?'),
 };
 
 export function findUserByEmail(email: string): UserRow | undefined {
@@ -706,6 +736,9 @@ export interface NewUser {
     team: string;
     password_hash: string;
     isAdmin: boolean;
+    // Defaults to matching isAdmin (see the `hidden` column's own schema comment) -- callers
+    // only need to pass this explicitly to override that default (nothing currently does).
+    hidden?: boolean;
 }
 
 export function insertUser(user: NewUser): UserRow {
@@ -716,6 +749,7 @@ export function insertUser(user: NewUser): UserRow {
         team: user.team,
         password_hash: user.password_hash,
         is_admin: user.isAdmin ? 1 : 0,
+        hidden: (user.hidden ?? user.isAdmin) ? 1 : 0,
     });
     return findUserById(Number(info.lastInsertRowid))!;
 }
@@ -744,9 +778,24 @@ export function setSubObjectiveCompleted(userId: number, value: boolean): void {
  * "not your own account" guard -- that's enforced one layer up, in the
  * POST /api/admin/users/:userId/admin route, since it's a request-level concern (who's making
  * the call), not something this bare data-layer setter can know on its own.
+ *
+ * Granting also force-hides the account in the same statement -- an admin logging in shouldn't
+ * show up in the student-facing "who gave you this card" guessing pool by default (see the
+ * `hidden` column's schema comment) -- but this is only ever a default: revoking admin never
+ * auto-unhides, and hidden stays independently toggleable either way via setHidden.
  */
 export function setIsAdmin(userId: number, value: boolean): void {
-    stmts.updateIsAdmin.run(value ? 1 : 0, userId);
+    if (value) {
+        stmts.updateIsAdminGrant.run(userId);
+    } else {
+        stmts.updateIsAdminRevoke.run(userId);
+    }
+}
+
+/** Admin action: independently shows/hides a user from the trade-attribution guessing pool --
+ *  see the `hidden` column's own schema comment for exactly what this does and doesn't affect. */
+export function setHidden(userId: number, value: boolean): void {
+    stmts.updateHidden.run(value ? 1 : 0, userId);
 }
 
 const UNASSIGNED_USERNAME = 'unassigned';
@@ -1097,15 +1146,15 @@ export function listVerifiedTrades(): VerifiedTradeRow[] {
 
 /**
  * `count` random users, excluding `excludeUserIds` (and always the reserved Unassigned
- * account) -- powers the trade-attribution popup's "3 other random people" options. Built
- * with its own inline `db.prepare` (rather than a static `stmts` entry) since the number of
- * placeholders in the exclusion list varies per call.
+ * account), and always excluding hidden accounts -- powers the trade-attribution popup's "3
+ * other random people" options. Built with its own inline `db.prepare` (rather than a static
+ * `stmts` entry) since the number of placeholders in the exclusion list varies per call.
  */
 export function randomOtherUsers(excludeUserIds: number[], count: number): UserRow[] {
     const excluded = [...new Set([...excludeUserIds, unassignedUser.id])];
     const placeholders = excluded.map(() => '?').join(', ');
     const stmt = db.prepare(
-        `SELECT * FROM users WHERE id NOT IN (${placeholders}) ORDER BY RANDOM() LIMIT ?`,
+        `SELECT * FROM users WHERE hidden = 0 AND id NOT IN (${placeholders}) ORDER BY RANDOM() LIMIT ?`,
     );
     return stmt.all(...excluded, count) as unknown as UserRow[];
 }
@@ -1233,4 +1282,51 @@ export function clearAllOwnership(): void {
  */
 export function returnCardInstance(cardInstanceId: number): void {
     insertExchangeEvent(cardInstanceId, unassignedUser.id, null, null);
+}
+
+export class CannotDeleteUnassignedUserError extends Error {}
+
+/**
+ * Admin action: permanently deletes `userId`'s account. Their trade history is kept, not
+ * erased -- every exchange_events/verified_trades row that referenced them is reassigned
+ * (same mechanism returnCardInstance already uses for "current holder with no specific owner")
+ * to the reserved Unassigned account, so other users' own card-custody chains stay valid and
+ * queryable. No exchange_events rows are deleted, so given_card_exchange_id (a self-reference
+ * within that table) never dangles and needs no separate nulling, unlike
+ * revokeCardInstanceFromUser/clearCardInstanceHistory. `seen_supercards`/`sessions` rows for
+ * this user are simply deleted -- both are purely personal to the account and have no bearing
+ * on anyone else's history. Irreversible.
+ */
+export function deleteUser(userId: number): void {
+    if (userId === unassignedUser.id) {
+        throw new CannotDeleteUnassignedUserError("Can't delete the reserved Unassigned account.");
+    }
+    db.exec('BEGIN');
+    try {
+        stmts.reassignExchangeEventsUser.run(unassignedUser.id, userId);
+        stmts.reassignExchangeEventsAuthInputUser.run(unassignedUser.id, userId);
+        stmts.reassignVerifiedTradesUserOne.run(unassignedUser.id, userId);
+        stmts.reassignVerifiedTradesUserTwo.run(unassignedUser.id, userId);
+        stmts.deleteSeenSupercardsForUser.run(userId);
+        stmts.deleteSessionsForUser.run(userId);
+        stmts.deleteUserById.run(userId);
+        db.exec('COMMIT');
+    } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+    }
+}
+
+/** Admin action: deletes every non-admin user account, site-wide -- the danger-zone "Delete ALL
+ *  non-admin users" button. Iterates deleteUser (reusing its safe per-user reassignment) rather
+ *  than a single bulk SQL pass -- user counts here are in the hundreds, not a scale where that
+ *  matters. Admin accounts (and the reserved Unassigned account, already excluded by listUsers)
+ *  are untouched. Irreversible.
+ *
+ *  @returns the number of accounts deleted
+ */
+export function deleteAllNonAdminUsers(): number {
+    const targets = listUsers().filter((u) => u.is_admin === 0);
+    for (const u of targets) deleteUser(u.id);
+    return targets.length;
 }
