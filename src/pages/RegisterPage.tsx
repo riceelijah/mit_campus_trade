@@ -78,7 +78,7 @@ export default function RegisterPage() {
                         type="text"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="Your real or preferred name"
+                        placeholder="Tim B."
                     />
                     <span className="auth-form__hint">
                         Please use your real or preferred name &mdash; it&rsquo;s what other students will see
