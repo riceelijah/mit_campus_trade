@@ -195,7 +195,7 @@ export default function CollectFlow({ supercard, uniqueId, onDone }: CollectFlow
                     <div className="qr-modal__art">
                         <CardArt supercard={supercard} />
                     </div>
-                    <p>You scanned &ldquo;{supercard.title}&rdquo;.</p>
+                    <p>You got &ldquo;{supercard.title}&rdquo;!</p>
                     {alreadyHasDesign && (
                         <p className="not-owned-note">
                             You already have a copy of this card &mdash; this adds another.
@@ -209,7 +209,7 @@ export default function CollectFlow({ supercard, uniqueId, onDone }: CollectFlow
                                 : collect(null, state.candidates)
                         }
                     >
-                        Register to my account
+                        Add to my collection
                     </button>
                     <button type="button" onClick={markSeen}>
                         Just looking

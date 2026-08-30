@@ -75,6 +75,19 @@ export interface PublicUserJson {
     subObjectiveCompleted: boolean;
 }
 
+/** Admin-only extension of PublicUserJson, adding `hidden` -- the shape returned by
+ *  GET /api/admin/users. Deliberately not part of PublicUserJson itself: that shared shape is
+ *  also used for CollectCandidatesJson's candidates and PublicCustodyEventJson's owner, both
+ *  shown to any logged-in student, and leaking which candidate is hidden there would defeat the
+ *  point of hiding them (see server/serialize.ts's AdminUser). */
+export interface AdminUserJson extends PublicUserJson {
+    /** Admin-only visibility flag: excluded from the trade-attribution "who gave you this
+     *  card" guessing pool (as both a distractor and the ground-truth answer), but otherwise
+     *  logs in and trades completely normally. Granting admin defaults this to true; it's
+     *  independently toggleable afterward. */
+    hidden: boolean;
+}
+
 /** One entry in a card instance's ownership history, as sent over the API. */
 export interface PublicCustodyEventJson {
     acquiredAt: string;
