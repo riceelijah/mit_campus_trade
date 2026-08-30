@@ -93,6 +93,9 @@ export default function RegisterPage() {
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@mit.edu"
                     />
+                    <span className="auth-form__hint">
+                        Please use the same @mit.edu email you used for the pre-survey, if you took it.
+                    </span>
                 </label>
                 <label>
                     Team color

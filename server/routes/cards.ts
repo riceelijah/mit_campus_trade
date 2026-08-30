@@ -79,6 +79,15 @@ cardsRouter.get('/:uniqueId/collect-candidates', requireAuth, (req, res) => {
     }
 
     const previousOwner = findUserById(previousOwnerId);
+
+    // A hidden account (e.g. an admin -- see the `hidden` column's schema comment) is never a
+    // valid attribution answer: skip the question entirely rather than asking the student to
+    // guess an account they were never meant to see, correctly or not.
+    if (previousOwner?.hidden === 1) {
+        res.status(200).json({ hasPreviousOwner: false, candidates: [] } satisfies CollectCandidatesJson);
+        return;
+    }
+
     const others = randomOtherUsers([viewer.id, previousOwnerId], RANDOM_OTHER_COUNT);
     const candidates = shuffled([...(previousOwner ? [previousOwner] : []), ...others]).map(sanitizeUser);
 

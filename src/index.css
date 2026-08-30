@@ -1412,6 +1412,16 @@ a {
     width: 140px;
 }
 
+/* "Add to my collection" / "Just looking" -- plain <button>s with no other styling by
+   default, so they render at browser-default size otherwise. */
+.qr-modal__message button {
+    padding: 10px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
 .qr-modal__manual {
     margin-top: 14px;
     padding-top: 14px;

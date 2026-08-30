@@ -131,10 +131,14 @@
       "Bash(grep -n \"^                \\)}\\\\|</ul>\\\\|admin-layout\\\\|</div>$\" /Users/riceelijah/Desktop/dev/other/campus_trade/src/pages/AdminPage.tsx)",
       "Bash(grep -n \"^            </div>$\\\\|^        </div>$\" /Users/riceelijah/Desktop/dev/other/campus_trade/src/pages/AdminPage.tsx)",
       "Bash(npm ci *)",
-      "Bash(git ls-tree *)"
+      "Bash(git ls-tree *)",
+      "Bash(DB_PATH=/tmp/ct_smoke.db PORT=3099 timeout 6 npx tsx server/index.ts)",
+      "Bash(rm -f /tmp/ct_smoke*.db /tmp/ct_smoke*.log /tmp/ct_cookies*.txt)",
+      "Bash(git add *)"
     ],
     "additionalDirectories": [
-      "/Users/riceelijah/Desktop/dev/other/campus_trade/server"
+      "/Users/riceelijah/Desktop/dev/other/campus_trade/server",
+      "/tmp"
     ]
   }
 }
