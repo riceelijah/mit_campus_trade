@@ -32,3 +32,70 @@
 | `SESSION_SECRET` | in production | dev-only placeholder | Signs the session cookie; server refuses to start in production without it               |
 | `ADMIN_EMAIL`    | no            | `ejrice@mit.edu`     | Email address auto-granted admin on registration                                         |
 | `NODE_ENV`       | in production | unset                | Set to `production` for real deploys (enables secure cookies, enforces `SESSION_SECRET`) |
+
+**`SESSION_SECRET` and `ADMIN_EMAIL` must actually have a value, not just exist as a blank
+line.** Copying `.env.example` and leaving `SESSION_SECRET=`/`ADMIN_EMAIL=` empty is _not_ the
+same as leaving them unset -- an empty string still counts as "set" and skips the normal
+default, leaving sessions signed with an empty secret (forgeable) and nobody ever auto-granted
+admin. Put a real value after the `=`, or delete the line entirely.
+
+## Production deployment
+
+This is two separate things that both have to be running, plus a reverse proxy in front of
+them -- there's no single command that starts "the app."
+
+1. **The Express API** (`server/index.ts`) -- serves everything under `/api/*`. Nothing else
+   serves this; there's no fallback.
+2. **The built static frontend** (`dist/`, from `npm run build`) -- plain static files. Nginx
+   (or whatever's fronting the site) should serve these directly. **Do not run `vite preview`
+   or `vite` itself as the production frontend** -- that's a dev-convenience server, not meant
+   to sit behind a public domain, and critically it does not know about `/api/*` at all, so
+   proxying to it instead of nginx serving `dist/` directly silently breaks every API call
+   while the page itself still loads fine (this exact mistake is what took the site down during
+   testing -- nothing was listening on the API's port at all, only a stray Vite process was
+   up).
+
+Deploy from the **`deploy-clean`** branch, not `main` -- it's the one with the `start` script
+and without dev-only tooling (tests, eslint, etc.) that has no reason to ship.
+
+```bash
+git checkout deploy-clean
+git pull
+npm ci
+npm run build      # produces dist/
+npm run start      # runs the API on $PORT (default 3001) -- only exists on this branch
+```
+
+`npm run start` runs in the foreground and dies the moment its terminal/session closes. Run it
+under whatever process supervisor is normally used on the box (`pm2`, a `systemd` service,
+etc.) so it survives a disconnect and restarts if it crashes. In a pinch, `screen -S
+campus-trade-api` before `npm run start`, then `Ctrl+A` `D` to detach, works as a stopgap.
+
+**Nginx** (or equivalent) needs to do two things:
+
+- Serve `dist/` as static files for everything else, with a fallback to `dist/index.html` for
+  unknown paths (this is a client-side-routed React app -- a hard refresh on e.g. `/cards/123`
+  has to still resolve to the app, not a 404).
+- Reverse-proxy `/api/` to `http://localhost:$PORT` (the Express process from above).
+
+Also: the camera-based QR scanner requires a secure context -- HTTPS (or `localhost`). Over
+plain HTTP, browsers don't expose camera access at all, and the scanner fails with "Could not
+access the camera" regardless of permissions. TLS has to be set up before that feature works;
+the manual ID-entry fallback in the scanner covers this in the meantime.
+
+**After the first deploy (or after adding/changing physical card copies):** run
+`npx tsx scripts/import-card-copies.ts` to populate `card_instances` from
+`data/card_copies_master.csv`. This is **destructive** -- it wipes `verified_trades`,
+`exchange_events`, `card_instances`, and `seen_supercards` first -- so only run it when that's
+actually intended (a fresh environment, or a deliberate reset), never casually against a
+database with real trading history.
+
+**Quick health check after any of the above:**
+
+```bash
+curl -s http://localhost:$PORT/api/auth/me
+```
+
+Should print `{"error":"Not authenticated"}` -- real JSON, not an HTML page or a connection
+error. If it doesn't, the API isn't actually running/reachable and nothing account-related will
+work, no matter how correct the code deployed is.
