@@ -37,6 +37,22 @@ export function sanitizeUser(row: UserRow): PublicUser {
     };
 }
 
+/** Admin-only extension of PublicUser, adding `hidden`. Deliberately kept separate from
+ *  sanitizeUser/PublicUser above -- that shared shape is reused by the collect-candidates route
+ *  (trade-attribution guessing, shown to any logged-in student) and sanitizeCustodyEvent below
+ *  (public card-detail trade history), and leaking which candidate is a hidden account there
+ *  would defeat the point of hiding them. Only the admin users list should ever see this. */
+export interface AdminUser extends PublicUser {
+    hidden: boolean;
+}
+
+export function sanitizeUserForAdmin(row: UserRow): AdminUser {
+    return {
+        ...sanitizeUser(row),
+        hidden: row.hidden === 1,
+    };
+}
+
 export interface PublicCustodyEvent {
     acquiredAt: string;
     owner: PublicUser;
