@@ -3,6 +3,7 @@ import NavBar from './components/NavBar';
 import HomePage from './pages/HomePage';
 import LockedHomePage from './pages/LockedHomePage';
 import CollectionPage from './pages/CollectionPage';
+import MyNotesPage from './pages/MyNotesPage';
 import RulesPage from './pages/RulesPage';
 import CardDetailPage from './pages/CardDetailPage';
 import CardInstancePage from './pages/CardInstancePage';
@@ -39,6 +40,7 @@ export default function App() {
                     {(!locked || bypassLockdown) && (
                         <>
                             <Route path="/collection" element={<CollectionPage />} />
+                            <Route path="/notes" element={<MyNotesPage />} />
                             <Route path="/rules" element={<RulesPage />} />
                             <Route path="/cards/:highlightId" element={<CardDetailPage />} />
                             <Route path="/cards/:highlightId/:uniqueId" element={<CardInstancePage />} />

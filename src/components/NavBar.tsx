@@ -99,6 +99,15 @@ export default function NavBar() {
                         Collection
                     </Link>
                 )}
+                {/* Right next to Collection -- same lockdown gating as it, since My Notes is
+                    about card-scan history, meaningless before that's reachable. Still
+                    login-gated (unlike Collection, which can be opened to guests), since the
+                    page itself is nothing but the caller's own history. */}
+                {user && !locked && (
+                    <Link to="/notes" className="navbar__link">
+                        My Notes
+                    </Link>
+                )}
                 {!locked && (
                     <Link to="/rules" className="navbar__link">
                         Rules &amp; FAQ

@@ -191,4 +191,60 @@ export interface ExchangeEventJson {
     tradeTime: string;
     receivedFromOtherPerson: 'Y' | 'N' | null;
     conversationNotes: string | null;
+    /** Earlier versions of conversationNotes this student has since edited away, oldest
+     *  first -- admin-only visibility (students can't see their own edit history on the My
+     *  Notes page, only the current text). Empty if the note has never been edited. */
+    priorConversationNotes: { notes: string; replacedAt: string }[];
 }
+
+/** One entry of GET /api/me/card-events -- one student's own card history, current or
+ *  historical. Two kinds, merged into one feed and sorted newest first (see
+ *  buildMyCardEventsFeed in server/serialize.ts):
+ *
+ *  - 'pickup': the student gained a card -- the self-service counterpart to ExchangeEventJson
+ *    (no userName, since it's always the caller), plus context an exchange_events row alone
+ *    doesn't carry: whether this was the very first scan of this physical card, whether it's a
+ *    design new to this student's own collection, and (if it completed a real two-way trade)
+ *    what card they gave up for it.
+ *  - 'removed': a card the student held moved on to someone else. exchange_events has no row
+ *    of its own for losing a card (only ever implicit -- the next holder's own pickup row), so
+ *    this is synthesized from the card's full custody chain. Read-only: there's no notes
+ *    prompt for something happening to a card, only for a conversation the student themselves
+ *    had, so this carries no exchangeEventId to attach notes to.
+ */
+export type MyCardEventJson =
+    | {
+          kind: 'pickup';
+          exchangeEventId: number;
+          supercardN: number | null;
+          cardUniqueId: string | null;
+          tradeTime: string;
+          /** True iff nobody had ever picked up this exact physical card before this event. */
+          isFirstScan: boolean;
+          /** True iff this was the first time this student ever got a copy of this card's
+           *  design, as opposed to a duplicate copy of one they already have. */
+          isNewToCollection: boolean;
+          /** Who this card actually came from, ground truth independent of any "who'd you get
+           *  this from?" claim (right or wrong) -- see insertExchangeEvent. Null if there was
+           *  no previous owner to have come from (a first scan, or a grant from the unclaimed
+           *  pool). */
+          fromUserName: string | null;
+          /** True once this pickup was confirmed as a real two-way trade -- both sides scanned
+           *  and correctly said who they got their card from. The user-facing name for what
+           *  admin calls a "verified trade". */
+          wasTrade: boolean;
+          /** If wasTrade, the card given up in return. */
+          tradedAwaySupercardN: number | null;
+          tradedAwayCardUniqueId: string | null;
+          notes: string | null;
+      }
+    | {
+          kind: 'removed';
+          cardInstanceId: number;
+          supercardN: number;
+          cardUniqueId: string;
+          removedAt: string;
+          /** Who holds it now, or null if it went back to the unclaimed pool (an admin Return)
+           *  rather than to another student. */
+          takenByName: string | null;
+      };
