@@ -1169,8 +1169,11 @@ a {
 
 .admin-stats__headline {
     display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
+    /* Always one row, all three sharing it equally, down to phone widths -- see
+       .admin-stats__stat's flex-basis/min-width below for how each one shrinks to fit rather
+       than wrapping to a second row. */
+    flex-wrap: nowrap;
+    gap: 10px;
     margin-bottom: 16px;
 }
 
@@ -1178,8 +1181,12 @@ a {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    min-width: 120px;
-    padding: 10px 14px;
+    flex: 1 1 0;
+    /* Overrides the flex-item default of min-width: auto (which would floor each card at its
+       longest unbroken content -- "Total card events" -- and force the row to overflow/wrap on
+       a narrow screen instead of letting the label wrap inside its own card). */
+    min-width: 0;
+    padding: 10px 12px;
     background: #fff;
     border: 1px solid #e5e5e5;
     border-radius: 8px;
