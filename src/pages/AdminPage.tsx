@@ -531,9 +531,11 @@ export default function AdminPage() {
                                     <ol>
                                         {stats.mostTradedCards.map((c) => (
                                             <li key={c.uniqueId}>
-                                                {cardLabel(c.supercardN, c.uniqueId)}
-                                                <span className="admin-stats__count">
-                                                    {c.tradeCount} trade{c.tradeCount === 1 ? '' : 's'}
+                                                <span className="admin-stats__row">
+                                                    <span>{cardLabel(c.supercardN, c.uniqueId)}</span>
+                                                    <span className="admin-stats__count">
+                                                        {c.tradeCount} trade{c.tradeCount === 1 ? '' : 's'}
+                                                    </span>
                                                 </span>
                                             </li>
                                         ))}
@@ -549,9 +551,11 @@ export default function AdminPage() {
                                     <ol>
                                         {stats.mostTradedDesigns.map((d) => (
                                             <li key={d.supercardN}>
-                                                {designLabel(d.supercardN)}
-                                                <span className="admin-stats__count">
-                                                    {d.tradeCount} trade{d.tradeCount === 1 ? '' : 's'}
+                                                <span className="admin-stats__row">
+                                                    <span>{designLabel(d.supercardN)}</span>
+                                                    <span className="admin-stats__count">
+                                                        {d.tradeCount} trade{d.tradeCount === 1 ? '' : 's'}
+                                                    </span>
                                                 </span>
                                             </li>
                                         ))}
