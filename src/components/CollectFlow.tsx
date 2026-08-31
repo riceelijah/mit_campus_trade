@@ -98,13 +98,17 @@ export default function CollectFlow({ supercard, uniqueId, onDone }: CollectFlow
                 const body: CollectResponseJson = await res.json();
                 await refreshUser();
                 // The two research prompts are mutually exclusive -- a first-ever scan never
-                // has a previous owner to claim, so the attribution popup (and thus a claim)
-                // never happens on that same event. See PendingResearchPrompt's doc comment.
+                // has a previous owner to claim, so the attribution popup never happens on that
+                // same event. See PendingResearchPrompt's doc comment. Bug fix: this used to
+                // additionally require claimedFromUserId !== null before showing the
+                // trade-conversation prompt, which meant picking "Unknown / Other" in the
+                // attribution popup (still a real previous-owner card, just an unidentified
+                // claim) silently skipped the notes prompt entirely -- the actual attribution
+                // guess and whether there's a conversation worth remembering are unrelated, so
+                // !firstEverScan alone is the right condition here.
                 const prompt: PendingResearchPrompt | undefined = body.firstEverScan
                     ? { type: 'received-from-other', exchangeEventId: body.exchangeEventId }
-                    : claimedFromUserId !== null
-                      ? { type: 'trade-conversation', exchangeEventId: body.exchangeEventId }
-                      : undefined;
+                    : { type: 'trade-conversation', exchangeEventId: body.exchangeEventId };
                 finish(`Added "${supercard.title}" to your collection.`, prompt);
             } catch (err) {
                 setState({

@@ -15,16 +15,25 @@ import { useAuth } from './auth/AuthContext';
 import { useSettings } from './settings/SettingsContext';
 
 export default function App() {
-    const { user, loading: authLoading } = useAuth();
-    const { settings, loading: settingsLoading } = useSettings();
+    const { user } = useAuth();
+    const { settings } = useSettings();
 
-    // Fail open (real site) while either is still loading, same as the brief flash
-    // CollectionPage/AdminPage already accept elsewhere -- a lockdown that's been on since
-    // before this page load will settle into place within one render either way, and there's
-    // nothing sensitive on the other side of it (see siteLockedDown's doc comment).
-    const locked = !authLoading && !settingsLoading && (settings?.siteLockedDown ?? false);
+    // Deliberately NOT gated on either context's own `loading` -- that used to fail open (real
+    // site) until both resolved, which is exactly what caused a visible flash of the real
+    // homepage on every reload while lockdown was on: SettingsContext now seeds `settings` from
+    // a localStorage cache of the last real answer (see SettingsContext's own comment), so this
+    // is already right from the very first render on a repeat visit, no round-trip wait needed.
+    // A true first-ever visit (nothing cached yet) still fails open here -- `settings` is null
+    // until that first fetch resolves, and there's nothing sensitive on the other side of it
+    // (see siteLockedDown's doc comment) -- unavoidable without server-side rendering.
+    const locked = settings?.siteLockedDown ?? false;
     // Admins always get the full site, lockdown or not, so they can keep working while it's on
-    // (and so there's always a way to switch it back off from /admin).
+    // (and so there's always a way to switch it back off from /admin). Still fails to "not an
+    // admin" while auth is loading (user is null until then) -- so an admin reloading during
+    // lockdown can see a brief flash the *other* way (locked placeholder, then the real site
+    // once their session confirms) rather than none at all. Deliberately left as the one
+    // remaining flash case: it only affects admins, who already know lockdown is on since they
+    // switched it on, versus caching a full User (custody chains and all) just to avoid it too.
     const bypassLockdown = user?.isAdmin ?? false;
 
     return (

@@ -107,14 +107,17 @@ actually set up before relying on deep links or hard refreshes working in produc
 
 ### Deploying the API
 
-Deploy from the **`deploy-clean`** branch, not `main` -- it's the one with the `start` script
-and without dev-only tooling (tests, eslint, etc.) that has no reason to ship.
+Deploy from **`main`** -- unlike the frontend below, the live host does *not* use
+`deploy-clean` for this (an earlier version of this doc said otherwise; `deploy-clean` still
+exists and does have its own `start` script, but it's not what the running host is actually
+tracking, so don't check it out here). `main` has its own `start` script now too, added
+specifically so this works from either branch:
 
 ```bash
-git checkout deploy-clean
+cd /opt/campus-trade
 git pull
 npm ci
-npm run start      # runs the API on $PORT (default 3001) -- only exists on this branch
+npm run start      # runs the API on $PORT -- see the systemd unit below for the real value
 ```
 
 (No `npm run build` needed here -- that only matters for the frontend deploy above. This host
@@ -122,26 +125,26 @@ never serves `dist/`.)
 
 `npm run start` runs in the foreground and dies the moment its terminal/session closes. Run it
 under a process supervisor so it survives a disconnect and restarts on its own if it crashes --
-don't run it raw in a terminal for anything other than a quick local check. On a systemd-based
-host (e.g. Ubuntu on EC2), a unit like this does the job (adjust `WorkingDirectory`, the `npm`
-path from `which npm`, and the real `SESSION_SECRET`):
+don't run it raw in a terminal for anything other than a quick local check. The live host is
+Ubuntu on EC2, under systemd, as **`campus-trade.service`** (not `campus-trade-api` -- another
+place an earlier version of this doc drifted from reality). Its real unit file, verified via
+`systemctl cat campus-trade.service`:
 
 ```ini
-# /etc/systemd/system/campus-trade-api.service
+# /etc/systemd/system/campus-trade.service
 [Unit]
 Description=Campus Trade API
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=ubuntu
 WorkingDirectory=/opt/campus-trade
-Environment=NODE_ENV=production
-Environment=DB_PATH=/var/lib/campus-trade/campus_trade.db
-Environment=SESSION_SECRET=<a real secret, not blank>
-ExecStart=/usr/bin/npm run start
+EnvironmentFile=/etc/campus-trade.env
+ExecStart=/opt/campus-trade/node_modules/.bin/tsx server/index.ts
 Restart=always
-RestartSec=5
+RestartSec=3
 StandardOutput=journal
 StandardError=journal
 
@@ -149,19 +152,32 @@ StandardError=journal
 WantedBy=multi-user.target
 ```
 
-The secret lives in this file, so lock it down (`sudo chmod 600` on it) before enabling:
+Note it calls `tsx` directly rather than `npm run start` (both do the same thing), and keeps
+`SESSION_SECRET`/`ADMIN_EMAIL`/`DB_PATH`/`NODE_ENV`/`PORT` in **`/etc/campus-trade.env`**
+(`KEY=value` per line, no `Environment=` prefix) rather than inline in the unit -- lock that
+file down (`sudo chmod 600 /etc/campus-trade.env`) instead of the unit file. **This host's env
+file sets `PORT=5000`**, not the table's documented default of 3001 -- check
+`/etc/campus-trade.env` (or just the "listening on" line in the logs) before assuming which
+port to hit.
+
+Setting up a fresh host from scratch:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now campus-trade-api
-sudo systemctl status campus-trade-api   # should show active (running)
-sudo journalctl -u campus-trade-api -f   # logs
+sudo systemctl enable --now campus-trade
+sudo systemctl status campus-trade   # should show active (running)
+sudo journalctl -u campus-trade -f   # logs
 ```
 
-From then on, a redeploy is `git pull && npm ci && sudo systemctl restart campus-trade-api` --
-no more terminal sessions that die and take the API down with them (this is what actually
-happened once already -- see the git history around the "Re-apply ADMIN_EMAIL/SESSION_SECRET"
-commits for the full story).
+From then on, a redeploy is `git pull && npm ci && sudo systemctl restart campus-trade` -- no
+more terminal sessions that die and take the API down with them (this is what actually happened
+once already -- see the git history around the "Re-apply ADMIN_EMAIL/SESSION_SECRET" commits
+for the full story).
+
+There's also an hourly cron job (`crontab -l` as the `ubuntu` user) running `backup-db.ts`
+against the real `DB_PATH`/`BACKUP_DIR`, independent of the manual `npm run backup:db` calls
+below -- both write to the same `/var/lib/campus-trade/backups`, so a manual backup right before
+something risky is extra insurance, not the only backup that exists.
 
 Also: the camera-based QR scanner requires a secure context -- HTTPS (or `localhost`). Over
 plain HTTP, browsers don't expose camera access at all, and the scanner fails with "Could not
@@ -174,9 +190,17 @@ any other context where it isn't.
 `data/card_copies_master.csv`. This is **destructive** -- it wipes `verified_trades`,
 `exchange_events`, `card_instances`, and `seen_supercards` first -- so only run it when that's
 actually intended (a fresh environment, or a deliberate reset), never casually against a
-database with real trading history.
+database with real trading history. Running it (or `npm run backup:db`) by hand like this
+doesn't go through `EnvironmentFile`, so `DB_PATH` isn't set unless you export it yourself first
+-- without it, both scripts default to a `campus_trade.db` next to the code instead of the real
+one at `/var/lib/campus-trade/campus_trade.db`, which is very much not what you want:
 
-**Quick health check after any of the above:**
+```bash
+DB_PATH=/var/lib/campus-trade/campus_trade.db npx tsx scripts/import-card-copies.ts
+```
+
+**Quick health check after any of the above** (port from `/etc/campus-trade.env`, not
+necessarily the table's documented default -- see above):
 
 ```bash
 curl -s http://localhost:$PORT/api/auth/me
