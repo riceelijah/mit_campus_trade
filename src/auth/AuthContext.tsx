@@ -4,6 +4,7 @@ import { Card } from '../card';
 import { FlagColor, PublicUserJson, PublicCardInstanceJson, MyCardsJson } from '../types';
 import { getSupercard } from '../data/supercards';
 import { extractError } from '../lib/api';
+import { parseServerTimestamp } from '../lib/format';
 
 export interface RegisterData {
     name: string;
@@ -78,7 +79,7 @@ function cardsFromJson(raw: PublicCardInstanceJson[]): Card[] {
         if (!supercard) continue; // defensive: server referenced a card number we don't have
         const card = new Card(supercard, item.cardInstanceId, item.uniqueId);
         for (const event of item.custody) {
-            card.transferTo(userFromJson(event.owner), new Date(event.acquiredAt));
+            card.transferTo(userFromJson(event.owner), parseServerTimestamp(event.acquiredAt));
         }
         cards.push(card);
     }
