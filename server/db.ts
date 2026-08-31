@@ -630,6 +630,39 @@ const stmts = {
                 @exchange_event_one_id, @exchange_event_two_id)
     `),
     listVerifiedTrades: db.prepare('SELECT * FROM verified_trades ORDER BY trade_id DESC'),
+    countExchangeEvents: db.prepare('SELECT COUNT(*) AS count FROM exchange_events'),
+    countVerifiedTrades: db.prepare('SELECT COUNT(*) AS count FROM verified_trades'),
+    // Every card given up as either side of a verified trade, tallied per physical copy --
+    // "which specific card has changed hands the most", for the admin stats panel. Each trade
+    // contributes two given-away cards (one per side), so this unions both columns before
+    // grouping rather than counting each side separately.
+    mostTradedCards: db.prepare(`
+        SELECT ci.supercard_n, ci.unique_id, COUNT(*) AS trade_count
+        FROM (
+            SELECT card_given_by_user_one_unique_id AS unique_id FROM verified_trades
+            UNION ALL
+            SELECT card_given_by_user_two_unique_id AS unique_id FROM verified_trades
+        ) given
+        JOIN card_instances ci ON ci.unique_id = given.unique_id
+        GROUP BY given.unique_id
+        ORDER BY trade_count DESC, ci.unique_id ASC
+        LIMIT 5
+    `),
+    // Same idea as mostTradedCards, aggregated by design (dex number) instead of physical copy
+    // -- "which designs drive the most trading activity", regardless of which specific printed
+    // copy moved.
+    mostTradedDesigns: db.prepare(`
+        SELECT ci.supercard_n, COUNT(*) AS trade_count
+        FROM (
+            SELECT card_given_by_user_one_unique_id AS unique_id FROM verified_trades
+            UNION ALL
+            SELECT card_given_by_user_two_unique_id AS unique_id FROM verified_trades
+        ) given
+        JOIN card_instances ci ON ci.unique_id = given.unique_id
+        GROUP BY ci.supercard_n
+        ORDER BY trade_count DESC, ci.supercard_n ASC
+        LIMIT 5
+    `),
 
     // "latest" = the most recent exchange_events row per card instance, i.e. its current owner.
     cardInstancesOwnedBy: db.prepare(`
@@ -1217,6 +1250,40 @@ export interface VerifiedTradeRow {
 
 export function listVerifiedTrades(): VerifiedTradeRow[] {
     return stmts.listVerifiedTrades.all() as unknown as VerifiedTradeRow[];
+}
+
+export interface CardTradeCountRow {
+    supercard_n: number;
+    unique_id: string;
+    trade_count: number;
+}
+
+export interface DesignTradeCountRow {
+    supercard_n: number;
+    trade_count: number;
+}
+
+export interface AdminStats {
+    totalCardEvents: number;
+    totalVerifiedTrades: number;
+    totalStudents: number;
+    /** Top 5 individual physical cards by trade count -- see mostTradedCards' own comment. */
+    mostTradedCards: CardTradeCountRow[];
+    /** Top 5 designs by trade count, aggregated across every copy of each -- see
+     *  mostTradedDesigns' own comment. */
+    mostTradedDesigns: DesignTradeCountRow[];
+}
+
+/** Powers the admin Stats panel -- a handful of quick-reference numbers so admin doesn't have
+ *  to go compute them by hand from the Verified trades/Card Events tables. */
+export function computeAdminStats(): AdminStats {
+    return {
+        totalCardEvents: (stmts.countExchangeEvents.get() as { count: number }).count,
+        totalVerifiedTrades: (stmts.countVerifiedTrades.get() as { count: number }).count,
+        totalStudents: listUsers().length,
+        mostTradedCards: stmts.mostTradedCards.all() as unknown as CardTradeCountRow[],
+        mostTradedDesigns: stmts.mostTradedDesigns.all() as unknown as DesignTradeCountRow[],
+    };
 }
 
 /**
