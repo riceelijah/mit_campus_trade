@@ -1,5 +1,5 @@
 import { CustodyRecord } from '../card';
-import { formatEasternDate } from '../lib/format';
+import { formatEasternDateTime } from '../lib/format';
 
 interface CustodyChainProps {
     custody: readonly CustodyRecord[];
@@ -15,7 +15,7 @@ export default function CustodyChain({ custody }: CustodyChainProps) {
         <ol className="custody-chain">
             {custody.map((record, i) => (
                 <li key={i}>
-                    {record.owner.name} &mdash; {formatEasternDate(record.acquiredAt)}
+                    {record.owner.name} &mdash; {formatEasternDateTime(record.acquiredAt)}
                 </li>
             ))}
         </ol>
