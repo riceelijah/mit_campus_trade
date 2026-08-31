@@ -1217,12 +1217,18 @@ a {
 }
 
 .admin-stats__list li {
+    padding: 4px 0;
+    font-size: 0.9rem;
+}
+
+/* The label/count layout lives on this inner element rather than the <li> itself -- a list
+   item's own display has to stay `list-item` (the default) for its number marker to render at
+   all; setting it to `flex` directly suppresses the marker entirely, per spec. */
+.admin-stats__row {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 8px;
-    padding: 4px 0;
-    font-size: 0.9rem;
 }
 
 .admin-stats__count {
