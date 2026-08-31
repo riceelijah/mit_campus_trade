@@ -162,6 +162,20 @@ export interface VerifiedTradeJson {
     userTwoConversationNotes: string | null;
 }
 
+/** The shape returned by GET /api/admin/stats -- a handful of quick-reference numbers for the
+ *  admin Stats panel, computed server-side (see computeAdminStats in server/db.ts) so admin
+ *  doesn't have to derive them by hand from the Verified trades/Card Events tables. */
+export interface AdminStatsJson {
+    totalCardEvents: number;
+    totalVerifiedTrades: number;
+    totalStudents: number;
+    /** Top 5 individual physical cards by trade count, i.e. which specific printed copy has
+     *  changed hands the most (as opposed to mostTradedDesigns, aggregated by design). */
+    mostTradedCards: { supercardN: number; uniqueId: string; tradeCount: number }[];
+    /** Top 5 designs by trade count, aggregated across every copy of each. */
+    mostTradedDesigns: { supercardN: number; tradeCount: number }[];
+}
+
 /** The shape of one research-prompt banner, handed to the client via CollectFlow's navigation
  *  state right after a successful collect -- see PromptBanner. The two variants are mutually
  *  exclusive: a first-ever scan never has a previous owner to claim, so the attribution popup

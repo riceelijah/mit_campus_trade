@@ -28,6 +28,7 @@ import {
     deleteAllNonAdminUsers,
     listExchangeEvents,
     findExchangeEventById,
+    computeAdminStats,
     UserRow,
 } from '../db';
 import { sanitizeUserForAdmin, serializeCardInstance, sanitizeExchangeEvent } from '../serialize';
@@ -40,6 +41,7 @@ import {
     AdminUserCardsJson,
     VerifiedTradeJson,
     ExchangeEventJson,
+    AdminStatsJson,
 } from '../../src/types';
 
 export const adminRouter = Router();
@@ -524,6 +526,26 @@ adminRouter.get('/verified-trades', (_req, res) => {
 adminRouter.get('/exchange-events', (_req, res) => {
     const events: ExchangeEventJson[] = listExchangeEvents().map(sanitizeExchangeEvent);
     res.status(200).json({ events });
+});
+
+// Powers the admin Stats panel -- see computeAdminStats's own doc comment in server/db.ts.
+adminRouter.get('/stats', (_req, res) => {
+    const stats = computeAdminStats();
+    const payload: AdminStatsJson = {
+        totalCardEvents: stats.totalCardEvents,
+        totalVerifiedTrades: stats.totalVerifiedTrades,
+        totalStudents: stats.totalStudents,
+        mostTradedCards: stats.mostTradedCards.map((c) => ({
+            supercardN: c.supercard_n,
+            uniqueId: c.unique_id,
+            tradeCount: c.trade_count,
+        })),
+        mostTradedDesigns: stats.mostTradedDesigns.map((d) => ({
+            supercardN: d.supercard_n,
+            tradeCount: d.trade_count,
+        })),
+    };
+    res.status(200).json(payload);
 });
 
 adminRouter.post('/settings/collection-requires-login', (req, res) => {
