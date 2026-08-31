@@ -30,14 +30,32 @@ const EASTERN_DATE = new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
 });
 
-/** Formats `when` (an ISO timestamp string, or an already-parsed Date) as a date + time in
+/**
+ * Parses a timestamp as sent by the server into a proper Date -- every timestamp from the API
+ * is SQLite's own `datetime('now')` format, `"YYYY-MM-DD HH:MM:SS"`, UTC, with no `T` separator
+ * or timezone marker. Bare `new Date(thatString)` is a well-known JS trap: a strict ISO 8601
+ * string (with `T` and no offset) is guaranteed parsed as UTC, but this space-separated form
+ * falls outside that and gets parsed as *local* time instead (V8's implementation-defined
+ * fallback). Left unfixed, every displayed timestamp comes out shifted by the viewer's own UTC
+ * offset -- concretely, a real 1:00 AM EDT event was showing as "5:00 AM EDT" for an EDT viewer,
+ * since parsing the raw digits as local-EDT and then formatting that instant back to EDT just
+ * round-trips the same clock digits unchanged instead of actually converting from UTC. Swapping
+ * the separator and appending `Z` makes it unambiguous ISO 8601, parsed as UTC everywhere.
+ * Passed a `Date` already (e.g. from AuthContext, which uses this same function while building
+ * `Card`'s custody chain), it's returned as-is -- already correctly parsed once, upstream.
+ */
+export function parseServerTimestamp(when: string | Date): Date {
+    return when instanceof Date ? when : new Date(when.replace(' ', 'T') + 'Z');
+}
+
+/** Formats `when` (a server timestamp string, or an already-parsed Date) as a date + time in
  *  Eastern time, e.g. "Aug 30, 2026, 3:45 PM EDT" -- regardless of the viewer's own timezone. */
 export function formatEasternDateTime(when: string | Date): string {
-    return EASTERN_DATETIME.format(new Date(when));
+    return EASTERN_DATETIME.format(parseServerTimestamp(when));
 }
 
 /** Same as formatEasternDateTime but date-only, e.g. "Aug 30, 2026" -- for places (like a
  *  card's ownership history) that don't need time-of-day precision. */
 export function formatEasternDate(when: string | Date): string {
-    return EASTERN_DATE.format(new Date(when));
+    return EASTERN_DATE.format(parseServerTimestamp(when));
 }

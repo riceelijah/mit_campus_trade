@@ -2,7 +2,7 @@ import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useSettings } from '../settings/SettingsContext';
-import { SUPERCARDS, ALL_COLORS, ALL_CATEGORIES } from '../data/supercards';
+import { SUPERCARDS, getSupercard, ALL_COLORS, ALL_CATEGORIES } from '../data/supercards';
 import {
     AdminUserJson,
     PublicCardInstanceJson,
@@ -10,6 +10,7 @@ import {
     FlagColor,
     VerifiedTradeJson,
     ExchangeEventJson,
+    AdminStatsJson,
 } from '../types';
 import { extractError } from '../lib/api';
 import { capitalize, formatEasternDateTime } from '../lib/format';
@@ -36,6 +37,19 @@ function currentOwnerId(card: PublicCardInstanceJson): number | undefined {
 function matches(query: string, ...fields: string[]): boolean {
     const q = query.trim().toLowerCase();
     return q === '' || fields.some((f) => f.toLowerCase().includes(q));
+}
+
+/** A design's title plus its dex number, e.g. "Masseeh (01)" -- for the Stats panel's
+ *  most-traded-designs list, where there's no specific printed copy to also name (contrast
+ *  with My Notes' CardLabel, which additionally has a uniqueId to include). */
+function designLabel(supercardN: number): string {
+    return `${getSupercard(supercardN)?.title ?? 'Unknown card'} (${String(supercardN).padStart(2, '0')})`;
+}
+
+/** A specific physical card's title plus its "(dex number-printed code)" id, e.g.
+ *  "Masseeh (01-AARK)" -- same convention as My Notes' CardLabel. */
+function cardLabel(supercardN: number, uniqueId: string): string {
+    return `${getSupercard(supercardN)?.title ?? 'Unknown card'} (${String(supercardN).padStart(2, '0')}-${uniqueId})`;
 }
 
 export default function AdminPage() {
@@ -75,6 +89,9 @@ export default function AdminPage() {
     // edit history (see priorConversationNotes).
     const [expandedEventId, setExpandedEventId] = useState<number | null>(null);
 
+    const [stats, setStats] = useState<AdminStatsJson | null>(null);
+    const [statsError, setStatsError] = useState<string | null>(null);
+
     const loadUsers = useCallback(async () => {
         const res = await fetch('/api/admin/users', { credentials: 'include' });
         if (!res.ok) {
@@ -105,6 +122,15 @@ export default function AdminPage() {
         setExchangeEvents(body.events);
     }, []);
 
+    const loadStats = useCallback(async () => {
+        const res = await fetch('/api/admin/stats', { credentials: 'include' });
+        if (!res.ok) {
+            setStatsError(await extractError(res));
+            return;
+        }
+        setStats(await res.json());
+    }, []);
+
     const loadCardsFor = useCallback(async (userId: number) => {
         const res = await fetch(`/api/admin/users/${userId}/cards`, { credentials: 'include' });
         if (!res.ok) {
@@ -121,8 +147,9 @@ export default function AdminPage() {
             loadUsers();
             loadVerifiedTrades();
             loadExchangeEvents();
+            loadStats();
         }
-    }, [user, loadUsers, loadVerifiedTrades, loadExchangeEvents]);
+    }, [user, loadUsers, loadVerifiedTrades, loadExchangeEvents, loadStats]);
 
     const filteredUsers = useMemo(
         () => users.filter((u) => matches(userSearch, u.username, u.name, u.email)),
@@ -475,6 +502,66 @@ export default function AdminPage() {
     return (
         <div>
             <h1>Admin</h1>
+
+            <CollapsibleSection title="Stats" className="admin-settings">
+                {statsError && <p className="form-error">{statsError}</p>}
+                {stats && (
+                    <>
+                        <div className="admin-stats__headline">
+                            <div className="admin-stats__stat">
+                                <span className="admin-stats__number">{stats.totalCardEvents}</span>
+                                <span className="admin-stats__label">Total card events</span>
+                            </div>
+                            <div className="admin-stats__stat">
+                                <span className="admin-stats__number">{stats.totalVerifiedTrades}</span>
+                                <span className="admin-stats__label">Verified trades</span>
+                            </div>
+                            <div className="admin-stats__stat">
+                                <span className="admin-stats__number">{stats.totalStudents}</span>
+                                <span className="admin-stats__label">Students</span>
+                            </div>
+                        </div>
+
+                        <div className="admin-stats__lists">
+                            <div className="admin-stats__list">
+                                <h4>Most-traded cards</h4>
+                                {stats.mostTradedCards.length === 0 ? (
+                                    <p className="admin-card-row__categories">No verified trades yet.</p>
+                                ) : (
+                                    <ol>
+                                        {stats.mostTradedCards.map((c) => (
+                                            <li key={c.uniqueId}>
+                                                {cardLabel(c.supercardN, c.uniqueId)}
+                                                <span className="admin-stats__count">
+                                                    {c.tradeCount} trade{c.tradeCount === 1 ? '' : 's'}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                )}
+                            </div>
+
+                            <div className="admin-stats__list">
+                                <h4>Most-traded designs</h4>
+                                {stats.mostTradedDesigns.length === 0 ? (
+                                    <p className="admin-card-row__categories">No verified trades yet.</p>
+                                ) : (
+                                    <ol>
+                                        {stats.mostTradedDesigns.map((d) => (
+                                            <li key={d.supercardN}>
+                                                {designLabel(d.supercardN)}
+                                                <span className="admin-stats__count">
+                                                    {d.tradeCount} trade{d.tradeCount === 1 ? '' : 's'}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                )}
+                            </div>
+                        </div>
+                    </>
+                )}
+            </CollapsibleSection>
 
             <CollapsibleSection title="Site settings" className="admin-settings" defaultOpen={false}>
                 {settingsError && <p className="form-error">{settingsError}</p>}
