@@ -1,8 +1,9 @@
-import { Fragment, ReactNode, useState, useEffect, useMemo, useCallback } from 'react';
+import { Fragment, ReactNode, MouseEventHandler, useState, useEffect, useMemo, useCallback } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useSettings } from '../settings/SettingsContext';
 import { SUPERCARDS, getSupercard, ALL_COLORS, ALL_CATEGORIES } from '../data/supercards';
+import { Supercard } from '../card';
 import CardArt from '../components/CardArt';
 import {
     AdminUserJson,
@@ -53,21 +54,88 @@ function cardLabel(supercardN: number, uniqueId: string): string {
     return `${getSupercard(supercardN)?.title ?? 'Unknown card'} (${String(supercardN).padStart(2, '0')}-${uniqueId})`;
 }
 
-/** Renders a specific printed copy's unique id as a link to its supercard's page, with a
- *  hover/focus preview of the card's actual art (see HoverCardLink below -- same preview
- *  mechanism) plus a native-tooltip title carrying the full "Title (dex-id)" label as a text
- *  fallback -- used everywhere a bare unique id shows up in the Verified trades / Card Events
- *  tables, so an admin scanning for what's actually being traded doesn't have to
- *  cross-reference the id by hand. Falls back to plain, unlinked text if supercardN is unknown
- *  (shouldn't happen in practice -- see VerifiedTradeJson's own doc comment -- but the display
- *  shouldn't break either way). */
+// Sized to match CardArt's own aspect-ratio (969 / 1569 -- see .card-art in index.css) so the
+// preview's on-screen position can be computed up front, before it's even rendered, without
+// waiting on a layout pass to measure it.
+const CARD_PREVIEW_WIDTH = 120;
+const CARD_PREVIEW_HEIGHT = Math.round((CARD_PREVIEW_WIDTH * 1569) / 969);
+const CARD_PREVIEW_GAP = 8; // trigger-to-preview spacing, and minimum distance from a viewport edge
+
+/**
+ * Shared building block for CardIdLink/HoverCardLink below: a link to a supercard's page, with
+ * a hover/focus preview of its actual art. The preview's position is computed in JS from the
+ * trigger's live bounding rect on each hover/focus (see index.css's .admin-hover-card__preview
+ * for why this can't just be a CSS-only hover popup) -- flips above vs. below depending on
+ * which has room, and clamps horizontally, so it always lands fully on-screen regardless of
+ * where the trigger sits in the page (a table row near the top of a scrolled panel, an entry
+ * near the right edge, etc). */
+function CardArtHoverLink({
+    supercard,
+    children,
+    title,
+    onClick,
+}: {
+    supercard: Supercard;
+    children: ReactNode;
+    title?: string;
+    onClick?: MouseEventHandler<HTMLAnchorElement>;
+}) {
+    const [previewPos, setPreviewPos] = useState<{ top: number; left: number } | null>(null);
+
+    const show = (e: { currentTarget: Element }) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const top =
+            rect.top >= CARD_PREVIEW_HEIGHT + CARD_PREVIEW_GAP
+                ? rect.top - CARD_PREVIEW_HEIGHT - CARD_PREVIEW_GAP
+                : rect.bottom + CARD_PREVIEW_GAP;
+        const left = Math.min(
+            Math.max(rect.left, CARD_PREVIEW_GAP),
+            window.innerWidth - CARD_PREVIEW_WIDTH - CARD_PREVIEW_GAP,
+        );
+        setPreviewPos({ top, left });
+    };
+    const hide = () => setPreviewPos(null);
+
+    return (
+        <>
+            <Link
+                to={`/cards/${supercard.highlightId}`}
+                className="admin-hover-card"
+                title={title}
+                onClick={onClick}
+                onMouseEnter={show}
+                onMouseLeave={hide}
+                onFocus={show}
+                onBlur={hide}
+            >
+                {children}
+            </Link>
+            {previewPos && (
+                <span
+                    className="admin-hover-card__preview"
+                    style={{ top: previewPos.top, left: previewPos.left, width: CARD_PREVIEW_WIDTH }}
+                    aria-hidden="true"
+                >
+                    <CardArt supercard={supercard} />
+                </span>
+            )}
+        </>
+    );
+}
+
+/** Renders a specific printed copy's unique id as a CardArtHoverLink, with a native-tooltip
+ *  title carrying the full "Title (dex-id)" label as a text fallback alongside the art preview
+ *  -- used everywhere a bare unique id shows up in the Verified trades / Card Events tables, so
+ *  an admin scanning for what's actually being traded doesn't have to cross-reference the id by
+ *  hand. Falls back to plain, unlinked text if supercardN is unknown (shouldn't happen in
+ *  practice -- see VerifiedTradeJson's own doc comment -- but the display shouldn't break
+ *  either way). */
 function CardIdLink({ supercardN, uniqueId }: { supercardN: number | null; uniqueId: string }) {
     const supercard = supercardN !== null ? getSupercard(supercardN) : undefined;
     if (!supercard) return <>{uniqueId}</>;
     return (
-        <Link
-            to={`/cards/${supercard.highlightId}`}
-            className="admin-hover-card"
+        <CardArtHoverLink
+            supercard={supercard}
             title={cardLabel(supercardN!, uniqueId)}
             // These always sit inside a table row that itself toggles expand/collapse on
             // click (see Verified trades / Card Events below) -- without this, clicking the
@@ -75,30 +143,19 @@ function CardIdLink({ supercardN, uniqueId }: { supercardN: number | null; uniqu
             onClick={(e) => e.stopPropagation()}
         >
             {uniqueId}
-            <span className="admin-hover-card__preview" aria-hidden="true">
-                <CardArt supercard={supercard} />
-            </span>
-        </Link>
+        </CardArtHoverLink>
     );
 }
 
-/** Wraps `children` (a card's label text) in a link to supercardN's page, with a hover/focus
- *  preview showing the card's actual art (via CardArt, so it gets the same greyscale-placeholder
- *  fallback as everywhere else art is shown) -- used on the Stats leaderboards, where being able
- *  to recognize the card at a glance is more useful than a text tooltip. Falls back to plain,
- *  unlinked text if supercardN doesn't resolve (shouldn't happen -- every leaderboard entry is
- *  computed server-side from real card_instances rows). */
+/** Wraps `children` (a card's label text) in a CardArtHoverLink to supercardN's page -- used on
+ *  the Stats leaderboards, where being able to recognize the card at a glance is more useful
+ *  than a text tooltip. Falls back to plain, unlinked text if supercardN doesn't resolve
+ *  (shouldn't happen -- every leaderboard entry is computed server-side from real
+ *  card_instances rows). */
 function HoverCardLink({ supercardN, children }: { supercardN: number; children: ReactNode }) {
     const supercard = getSupercard(supercardN);
     if (!supercard) return <>{children}</>;
-    return (
-        <Link to={`/cards/${supercard.highlightId}`} className="admin-hover-card">
-            {children}
-            <span className="admin-hover-card__preview" aria-hidden="true">
-                <CardArt supercard={supercard} />
-            </span>
-        </Link>
-    );
+    return <CardArtHoverLink supercard={supercard}>{children}</CardArtHoverLink>;
 }
 
 export default function AdminPage() {
