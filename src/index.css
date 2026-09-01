@@ -1342,23 +1342,11 @@ a {
     background: #eef0ff;
 }
 
-/* A unique-id link inside Verified trades / Card Events (see AdminPage's CardIdLink) -- plain
-   underline rather than .chip's pill shape, which reads as too heavy inside a dense table row.
-   The hover/focus color change is the only extra affordance beyond the underline, since the
-   underline itself already marks it as a link at a glance. */
-.admin-table__card-link {
-    color: inherit;
-    text-decoration: underline;
-    text-decoration-color: #bbb;
-}
-
-.admin-table__card-link:hover,
-.admin-table__card-link:focus-visible {
-    text-decoration-color: currentColor;
-}
-
-/* A leaderboard entry's link to its supercard's page (see AdminPage's HoverCardLink), with a
-   hover/focus preview of the card's actual art -- see .admin-hover-card__preview below. */
+/* A card id/label's link to its supercard's page -- used both for a unique id inside Verified
+   trades / Card Events (see AdminPage's CardIdLink) and a leaderboard entry on the Stats panel
+   (see HoverCardLink) -- plain underline rather than .chip's pill shape, which reads as too
+   heavy inside a dense table row, plus a hover/focus preview of the card's actual art (see
+   .admin-hover-card__preview below). */
 .admin-hover-card {
     position: relative;
     display: inline-block;
