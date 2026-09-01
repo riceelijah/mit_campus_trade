@@ -52,7 +52,9 @@
       "Bash(python3 -m json.tool /private/tmp/claude-501/-Users-riceelijah-dev-other-campus-trade/09d090be-ab15-4279-a38c-7fab2248c50a/scratchpad/vt.json)",
       "Bash(pkill -f \"concurrently -n web,api\")",
       "Bash(pkill -f \"tsx watch --env-file-if-exists=.env server/index.ts\")",
-      "Bash(pkill -f \"vite --port\")"
+      "Bash(pkill -f \"vite --port\")",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=3 ubuntu@ip-10-53-0-102 echo test)",
+      "Bash(node /private/tmp/claude-501/-Users-riceelijah-dev-other-campus-trade/09d090be-ab15-4279-a38c-7fab2248c50a/scratchpad/verify_art_tooltip.mjs)"
     ]
   }
 }

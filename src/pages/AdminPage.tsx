@@ -54,18 +54,20 @@ function cardLabel(supercardN: number, uniqueId: string): string {
 }
 
 /** Renders a specific printed copy's unique id as a link to its supercard's page, with a
- *  native-tooltip title showing the full "Title (dex-id)" label on hover -- used everywhere a
- *  bare unique id shows up in the Verified trades / Card Events tables, so an admin scanning
- *  for what's actually being traded doesn't have to cross-reference the id by hand. Falls back
- *  to plain, unlinked text if supercardN is unknown (shouldn't happen in practice -- see
- *  VerifiedTradeJson's own doc comment -- but the display shouldn't break either way). */
+ *  hover/focus preview of the card's actual art (see HoverCardLink below -- same preview
+ *  mechanism) plus a native-tooltip title carrying the full "Title (dex-id)" label as a text
+ *  fallback -- used everywhere a bare unique id shows up in the Verified trades / Card Events
+ *  tables, so an admin scanning for what's actually being traded doesn't have to
+ *  cross-reference the id by hand. Falls back to plain, unlinked text if supercardN is unknown
+ *  (shouldn't happen in practice -- see VerifiedTradeJson's own doc comment -- but the display
+ *  shouldn't break either way). */
 function CardIdLink({ supercardN, uniqueId }: { supercardN: number | null; uniqueId: string }) {
     const supercard = supercardN !== null ? getSupercard(supercardN) : undefined;
     if (!supercard) return <>{uniqueId}</>;
     return (
         <Link
             to={`/cards/${supercard.highlightId}`}
-            className="admin-table__card-link"
+            className="admin-hover-card"
             title={cardLabel(supercardN!, uniqueId)}
             // These always sit inside a table row that itself toggles expand/collapse on
             // click (see Verified trades / Card Events below) -- without this, clicking the
@@ -73,6 +75,9 @@ function CardIdLink({ supercardN, uniqueId }: { supercardN: number | null; uniqu
             onClick={(e) => e.stopPropagation()}
         >
             {uniqueId}
+            <span className="admin-hover-card__preview" aria-hidden="true">
+                <CardArt supercard={supercard} />
+            </span>
         </Link>
     );
 }
