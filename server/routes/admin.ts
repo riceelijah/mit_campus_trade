@@ -4,6 +4,7 @@ import {
     listUsers,
     findUserById,
     findCardInstance,
+    findCardInstanceByUniqueId,
     currentOwnerOfCardInstance,
     cardInstancesOwnedBy,
     cardInstancesCollectedBy,
@@ -507,6 +508,12 @@ adminRouter.get('/verified-trades', (_req, res) => {
             name: t.user_one_name,
         },
         cardGivenByUserOneUniqueId: t.card_given_by_user_one_unique_id,
+        // Which design this specific copy belongs to, so the admin UI can link/tooltip to the
+        // supercard's page -- null only if the unique_id somehow doesn't resolve to a known
+        // card_instance (shouldn't happen in practice; this is a plain SELECT, read-only, no
+        // risk to any in-progress trade).
+        cardGivenByUserOneSupercardN:
+            findCardInstanceByUniqueId(t.card_given_by_user_one_unique_id)?.supercard_n ?? null,
         userOneTradeTime: t.user_one_trade_time,
         userOneConversationNotes: findExchangeEventById(t.exchange_event_one_id)?.conversation_notes ?? null,
         userTwo: {
@@ -515,6 +522,8 @@ adminRouter.get('/verified-trades', (_req, res) => {
             name: t.user_two_name,
         },
         cardGivenByUserTwoUniqueId: t.card_given_by_user_two_unique_id,
+        cardGivenByUserTwoSupercardN:
+            findCardInstanceByUniqueId(t.card_given_by_user_two_unique_id)?.supercard_n ?? null,
         userTwoTradeTime: t.user_two_trade_time,
         userTwoConversationNotes: findExchangeEventById(t.exchange_event_two_id)?.conversation_notes ?? null,
     }));

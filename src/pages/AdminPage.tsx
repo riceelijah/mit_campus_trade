@@ -1,8 +1,9 @@
-import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Fragment, ReactNode, useState, useEffect, useMemo, useCallback } from 'react';
+import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useSettings } from '../settings/SettingsContext';
 import { SUPERCARDS, getSupercard, ALL_COLORS, ALL_CATEGORIES } from '../data/supercards';
+import CardArt from '../components/CardArt';
 import {
     AdminUserJson,
     PublicCardInstanceJson,
@@ -50,6 +51,49 @@ function designLabel(supercardN: number): string {
  *  "Masseeh (01-AARK)" -- same convention as My Notes' CardLabel. */
 function cardLabel(supercardN: number, uniqueId: string): string {
     return `${getSupercard(supercardN)?.title ?? 'Unknown card'} (${String(supercardN).padStart(2, '0')}-${uniqueId})`;
+}
+
+/** Renders a specific printed copy's unique id as a link to its supercard's page, with a
+ *  native-tooltip title showing the full "Title (dex-id)" label on hover -- used everywhere a
+ *  bare unique id shows up in the Verified trades / Card Events tables, so an admin scanning
+ *  for what's actually being traded doesn't have to cross-reference the id by hand. Falls back
+ *  to plain, unlinked text if supercardN is unknown (shouldn't happen in practice -- see
+ *  VerifiedTradeJson's own doc comment -- but the display shouldn't break either way). */
+function CardIdLink({ supercardN, uniqueId }: { supercardN: number | null; uniqueId: string }) {
+    const supercard = supercardN !== null ? getSupercard(supercardN) : undefined;
+    if (!supercard) return <>{uniqueId}</>;
+    return (
+        <Link
+            to={`/cards/${supercard.highlightId}`}
+            className="admin-table__card-link"
+            title={cardLabel(supercardN!, uniqueId)}
+            // These always sit inside a table row that itself toggles expand/collapse on
+            // click (see Verified trades / Card Events below) -- without this, clicking the
+            // id to navigate would also flip that row open/closed on the way out.
+            onClick={(e) => e.stopPropagation()}
+        >
+            {uniqueId}
+        </Link>
+    );
+}
+
+/** Wraps `children` (a card's label text) in a link to supercardN's page, with a hover/focus
+ *  preview showing the card's actual art (via CardArt, so it gets the same greyscale-placeholder
+ *  fallback as everywhere else art is shown) -- used on the Stats leaderboards, where being able
+ *  to recognize the card at a glance is more useful than a text tooltip. Falls back to plain,
+ *  unlinked text if supercardN doesn't resolve (shouldn't happen -- every leaderboard entry is
+ *  computed server-side from real card_instances rows). */
+function HoverCardLink({ supercardN, children }: { supercardN: number; children: ReactNode }) {
+    const supercard = getSupercard(supercardN);
+    if (!supercard) return <>{children}</>;
+    return (
+        <Link to={`/cards/${supercard.highlightId}`} className="admin-hover-card">
+            {children}
+            <span className="admin-hover-card__preview" aria-hidden="true">
+                <CardArt supercard={supercard} />
+            </span>
+        </Link>
+    );
 }
 
 export default function AdminPage() {
@@ -532,7 +576,9 @@ export default function AdminPage() {
                                         {stats.mostTradedCards.map((c) => (
                                             <li key={c.uniqueId}>
                                                 <span className="admin-stats__row">
-                                                    <span>{cardLabel(c.supercardN, c.uniqueId)}</span>
+                                                    <HoverCardLink supercardN={c.supercardN}>
+                                                        {cardLabel(c.supercardN, c.uniqueId)}
+                                                    </HoverCardLink>
                                                     <span className="admin-stats__count">
                                                         {c.tradeCount} trade{c.tradeCount === 1 ? '' : 's'}
                                                     </span>
@@ -552,7 +598,9 @@ export default function AdminPage() {
                                         {stats.mostTradedDesigns.map((d) => (
                                             <li key={d.supercardN}>
                                                 <span className="admin-stats__row">
-                                                    <span>{designLabel(d.supercardN)}</span>
+                                                    <HoverCardLink supercardN={d.supercardN}>
+                                                        {designLabel(d.supercardN)}
+                                                    </HoverCardLink>
                                                     <span className="admin-stats__count">
                                                         {d.tradeCount} trade{d.tradeCount === 1 ? '' : 's'}
                                                     </span>
@@ -621,10 +669,20 @@ export default function AdminPage() {
                                             onClick={() => setExpandedTradeId(expanded ? null : t.tradeId)}
                                         >
                                             <td>{t.userOne.username}</td>
-                                            <td>{t.cardGivenByUserOneUniqueId}</td>
+                                            <td>
+                                                <CardIdLink
+                                                    supercardN={t.cardGivenByUserOneSupercardN}
+                                                    uniqueId={t.cardGivenByUserOneUniqueId}
+                                                />
+                                            </td>
                                             <td>{formatEasternDateTime(t.userOneTradeTime)}</td>
                                             <td>{t.userTwo.username}</td>
-                                            <td>{t.cardGivenByUserTwoUniqueId}</td>
+                                            <td>
+                                                <CardIdLink
+                                                    supercardN={t.cardGivenByUserTwoSupercardN}
+                                                    uniqueId={t.cardGivenByUserTwoUniqueId}
+                                                />
+                                            </td>
                                             <td>{formatEasternDateTime(t.userTwoTradeTime)}</td>
                                         </tr>
                                         {expanded && (
@@ -698,7 +756,16 @@ export default function AdminPage() {
                                             }
                                         >
                                             <td>{e.userName}</td>
-                                            <td>{e.cardUniqueId ?? '—'}</td>
+                                            <td>
+                                                {e.cardUniqueId ? (
+                                                    <CardIdLink
+                                                        supercardN={e.supercardN}
+                                                        uniqueId={e.cardUniqueId}
+                                                    />
+                                                ) : (
+                                                    '—'
+                                                )}
+                                            </td>
                                             <td>{formatEasternDateTime(e.tradeTime)}</td>
                                             <td>
                                                 {e.receivedFromOtherPerson === 'Y'
@@ -1060,7 +1127,7 @@ export default function AdminPage() {
                                                                                             <span>
                                                                                                 {sc.n}-
                                                                                                 {
-                                                                                                    instance.cardInstanceId
+                                                                                                    instance.uniqueId
                                                                                                 }
                                                                                                 {!ownedByThem && (
                                                                                                     <em className="admin-instance-chip__note">

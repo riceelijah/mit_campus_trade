@@ -154,10 +154,15 @@ export interface VerifiedTradeJson {
     tradeId: number;
     userOne: { id: number; username: string; name: string };
     cardGivenByUserOneUniqueId: string;
+    /** Which design cardGivenByUserOneUniqueId belongs to -- lets the admin UI link/tooltip to
+     *  the supercard's page. Null only if the unique_id somehow doesn't resolve to a known
+     *  card_instance (shouldn't happen in practice). */
+    cardGivenByUserOneSupercardN: number | null;
     userOneTradeTime: string;
     userOneConversationNotes: string | null;
     userTwo: { id: number; username: string; name: string };
     cardGivenByUserTwoUniqueId: string;
+    cardGivenByUserTwoSupercardN: number | null;
     userTwoTradeTime: string;
     userTwoConversationNotes: string | null;
 }

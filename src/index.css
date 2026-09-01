@@ -1342,6 +1342,61 @@ a {
     background: #eef0ff;
 }
 
+/* A unique-id link inside Verified trades / Card Events (see AdminPage's CardIdLink) -- plain
+   underline rather than .chip's pill shape, which reads as too heavy inside a dense table row.
+   The hover/focus color change is the only extra affordance beyond the underline, since the
+   underline itself already marks it as a link at a glance. */
+.admin-table__card-link {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: #bbb;
+}
+
+.admin-table__card-link:hover,
+.admin-table__card-link:focus-visible {
+    text-decoration-color: currentColor;
+}
+
+/* A leaderboard entry's link to its supercard's page (see AdminPage's HoverCardLink), with a
+   hover/focus preview of the card's actual art -- see .admin-hover-card__preview below. */
+.admin-hover-card {
+    position: relative;
+    display: inline-block;
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: #bbb;
+}
+
+.admin-hover-card:hover,
+.admin-hover-card:focus-visible {
+    text-decoration-color: currentColor;
+}
+
+/* Hidden until the link is hovered/focused -- positioned above the trigger text, centered on
+   it. z-index clears both .admin-settings panels and the Stats headline numbers next to it.
+   pointer-events: none so the preview itself is never what receives the hover, avoiding any
+   flicker as the cursor crosses its edge on the way to/from the link. */
+.admin-hover-card__preview {
+    display: none;
+    position: absolute;
+    z-index: 20;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 8px;
+    width: 120px;
+    pointer-events: none;
+}
+
+.admin-hover-card:hover .admin-hover-card__preview,
+.admin-hover-card:focus-visible .admin-hover-card__preview {
+    display: block;
+}
+
+.admin-hover-card__preview .card-art {
+    width: 100%;
+    border-radius: 8px;
+}
+
 /* The extra row a verified-trade row expands into on click (see AdminPage) -- not itself
    clickable/hoverable like a normal .admin-table row, so it opts back out of both. */
 .admin-table__detail-row {
