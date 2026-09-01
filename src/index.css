@@ -1348,8 +1348,6 @@ a {
    heavy inside a dense table row, plus a hover/focus preview of the card's actual art (see
    .admin-hover-card__preview below). */
 .admin-hover-card {
-    position: relative;
-    display: inline-block;
     color: inherit;
     text-decoration: underline;
     text-decoration-color: #bbb;
@@ -1360,24 +1358,19 @@ a {
     text-decoration-color: currentColor;
 }
 
-/* Hidden until the link is hovered/focused -- positioned above the trigger text, centered on
-   it. z-index clears both .admin-settings panels and the Stats headline numbers next to it.
-   pointer-events: none so the preview itself is never what receives the hover, avoiding any
-   flicker as the cursor crosses its edge on the way to/from the link. */
+/* The hover/focus art preview (see CardArtHoverLink in AdminPage.tsx) -- only mounted at all
+   while shown, with its top/left computed in JS from the trigger's live bounding rect, and
+   `position: fixed` (not `absolute`) so it's positioned against the viewport rather than any
+   ancestor. That combination is what lets it escape .admin-table__scroll's clipping (its
+   overflow-x: auto also computes overflow-y as auto per the CSS overflow spec -- see that
+   class's own comment -- which was silently cropping a plain CSS absolute+hover popup) and
+   stay fully on-screen no matter where the trigger sits, flipping above/below and clamping
+   horizontally rather than running off an edge. pointer-events: none so the preview itself is
+   never what receives the hover, avoiding flicker as the cursor crosses its edge. */
 .admin-hover-card__preview {
-    display: none;
-    position: absolute;
+    position: fixed;
     z-index: 20;
-    bottom: 100%;
-    left: 0;
-    margin-bottom: 8px;
-    width: 120px;
     pointer-events: none;
-}
-
-.admin-hover-card:hover .admin-hover-card__preview,
-.admin-hover-card:focus-visible .admin-hover-card__preview {
-    display: block;
 }
 
 .admin-hover-card__preview .card-art {
