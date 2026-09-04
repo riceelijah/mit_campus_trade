@@ -156,18 +156,25 @@ access the camera" regardless of permissions. The public CloudFront domain is al
 this is covered for the deployed site; the manual ID-entry fallback in the scanner exists for
 any other context where it isn't.
 
-**After the first deploy (or after adding/changing physical card copies):** run
-`npx tsx scripts/import-card-copies.ts` to populate `card_instances` from
-`data/card_copies_master.csv`. This is **destructive** -- it wipes `verified_trades`,
-`exchange_events`, `card_instances`, and `seen_supercards` first -- so only run it when that's
-actually intended (a fresh environment, or a deliberate reset), never casually against a
-database with real trading history. Running it (or `npm run backup:db`) by hand like this
-doesn't go through `EnvironmentFile`, so `DB_PATH` isn't set unless you export it yourself first
--- without it, both scripts default to a `campus_trade.db` next to the code instead of the real
-one at `/var/lib/campus-trade/campus_trade.db`, which is very much not what you want:
+**After the first deploy:** run `npx tsx scripts/import-card-copies.ts` to populate
+`card_instances` from `data/card_copies_master.csv`. This is **destructive** -- it wipes
+`verified_trades`, `exchange_events`, `card_instances`, and `seen_supercards` first -- so only
+run it when that's actually intended (a fresh environment, or a deliberate reset), never
+casually against a database with real trading history.
+
+**After adding/changing physical card copies once trading has actually started:** use
+`npx tsx scripts/add-card-copies.ts` instead -- same source sheet, but purely additive. It
+inserts only the unique_ids in `data/card_copies_master.csv` that don't already exist in
+`card_instances`; every existing instance, and all ownership/trade history, is left completely
+untouched. Safe to re-run (a unique_id already added is just skipped the second time).
+
+Running either by hand like this doesn't go through `EnvironmentFile`, so `DB_PATH` isn't set
+unless you export it yourself first -- without it, both scripts default to a `campus_trade.db`
+next to the code instead of the real one at `/var/lib/campus-trade/campus_trade.db`, which is
+very much not what you want:
 
 ```bash
-DB_PATH=/var/lib/campus-trade/campus_trade.db npx tsx scripts/import-card-copies.ts
+DB_PATH=/var/lib/campus-trade/campus_trade.db npx tsx scripts/add-card-copies.ts
 ```
 
 **Quick health check after any of the above** (port from `/etc/campus-trade.env`, not
