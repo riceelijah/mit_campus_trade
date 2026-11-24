@@ -4,3 +4,5 @@ dist
 server/*.db*
 .env
 public/font
+.DS_Store
+.claude/settings.local.json
